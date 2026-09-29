@@ -42,6 +42,33 @@
             }
         }
 
+        // Print alleen een specifiek onderdeel van de pagina via het Windows-printmenu
+        // (window.print() opent het native OS-printdialoogvenster incl. printerselectie).
+        // Herbruikbaar: elk onderdeel dat afdrukbaar moet zijn krijgt gewoon een eigen id.
+        function printElementById(elementId) {
+            var target = document.getElementById(elementId);
+            if (!target) {
+                return;
+            }
+
+            document.body.classList.add('print-scoping');
+            target.classList.add('print-target');
+
+            var cleanedUp = false;
+            function cleanup() {
+                if (cleanedUp) return;
+                cleanedUp = true;
+                document.body.classList.remove('print-scoping');
+                target.classList.remove('print-target');
+                window.removeEventListener('afterprint', cleanup);
+            }
+
+            window.addEventListener('afterprint', cleanup);
+            window.print();
+            // Vangnet voor browsers die afterprint niet betrouwbaar afvuren.
+            setTimeout(cleanup, 3000);
+        }
+
         async function saveCredentials(username, password) {
             // Methode 1: Credential Management API (Chrome/Edge met HTTPS)
             if (window.PasswordCredential) {

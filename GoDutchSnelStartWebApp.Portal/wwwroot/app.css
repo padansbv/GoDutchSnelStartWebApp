@@ -118,3 +118,24 @@ h1:focus {
     padding: 0;
     opacity: 0;
 }
+
+/* Afdrukken van één specifiek onderdeel (PrintButton-component): alles behalve het
+   gemarkeerde .print-target wordt bij het afdrukken verborgen, zodat het Windows-
+   printdialoogvenster alleen dat onderdeel laat zien i.p.v. de hele pagina met menu. */
+@media print {
+    body.print-scoping * {
+        visibility: hidden !important;
+    }
+
+    body.print-scoping .print-target,
+    body.print-scoping .print-target * {
+        visibility: visible !important;
+    }
+
+    body.print-scoping .print-target {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+    }
+}

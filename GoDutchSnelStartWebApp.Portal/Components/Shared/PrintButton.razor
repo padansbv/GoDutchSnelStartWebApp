@@ -1,0 +1,25 @@
+@inject IJSRuntime JS
+
+<button type="button" class="btn @ButtonClass d-print-none" @onclick="PrintAsync">
+    <span aria-hidden="true">🖨️</span> @Label
+</button>
+
+@code {
+    /// <summary>
+    /// Id van het DOM-element dat afgedrukt moet worden (bv. een resultaattabel). Alles
+    /// buiten dit element (menu, knoppen, invoervelden) wordt bij het afdrukken verborgen.
+    /// </summary>
+    [Parameter, EditorRequired]
+    public string TargetElementId { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Label { get; set; } = "Afdrukken";
+
+    [Parameter]
+    public string ButtonClass { get; set; } = "btn-outline-secondary";
+
+    private async Task PrintAsync()
+    {
+        await JS.InvokeVoidAsync("printElementById", TargetElementId);
+    }
+}

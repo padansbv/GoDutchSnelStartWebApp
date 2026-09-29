@@ -116,7 +116,11 @@
 
 @if (result is not null)
 {
-    <div class="card mb-3">
+    <div class="d-flex justify-content-end mb-2">
+        <PrintButton TargetElementId="print-area-mypos-overzicht" Label="Overzicht afdrukken" />
+    </div>
+
+    <div id="print-area-mypos-overzicht" class="card mb-3">
         <div class="card-header d-flex justify-content-between align-items-center">
             <span>Berekend saldo-overzicht</span>
             <span class="text-muted small">
