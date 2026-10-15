@@ -1029,6 +1029,28 @@
         }
     }
 
+    /// <summary>
+    /// Haalt alleen de raw-transactielijst (Geëxporteerd/Niet geëxporteerd-kolom) opnieuw op
+    /// voor de huidige periode, zonder opnieuw bij myPOS te importeren of totalisaties/batches
+    /// te verversen. Gebruikt na een geslaagde export naar SnelStart.
+    /// </summary>
+    private async Task RefreshRawTransactionsAsync()
+    {
+        if (!TryGetPeriod(out var fromUtc, out var toUtc))
+        {
+            return;
+        }
+
+        try
+        {
+            rawTransactions = (await BackendApiClient.GetMyPosRawTransactionsAsync(TenantId, fromUtc, toUtc)).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Raw transacties verversen na export mislukt.");
+        }
+    }
+
     private bool TryGetPeriod(out DateTime fromUtc, out DateTime toUtc)
     {
         fromUtc = default;
@@ -1575,6 +1597,11 @@
                 successMessage =
                     $"myPOS exportbatch is naar SnelStart geëxporteerd. " +
                     $"Regels: {result.ExportedLineCount}/{result.LineCount}.";
+
+                // De raw-transactielijst (kolom Geëxporteerd/Niet geëxporteerd) stond na een
+                // export nog op de oude, voor-export status totdat de pagina handmatig werd
+                // ververst. Haal 'm hier opnieuw op (zonder opnieuw bij myPOS te importeren).
+                await RefreshRawTransactionsAsync();
             }
             else
             {
