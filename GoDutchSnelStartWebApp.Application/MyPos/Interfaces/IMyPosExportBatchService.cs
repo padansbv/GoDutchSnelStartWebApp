@@ -18,4 +18,15 @@ public interface IMyPosExportBatchService
         DateTime fromUtc,
         DateTime toUtc,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Draait een eerder geëxporteerde batch lokaal terug (Status wordt Reverted) en geeft de
+    /// onderliggende raw transacties weer vrij voor een nieuwe batch. Gebruik dit pas nadat de
+    /// bijbehorende boeking handmatig in SnelStart is verwijderd -- dit roept SnelStart niet aan.
+    /// </summary>
+    Task<MyPosExportBatchDto> RevertExportAsync(
+        Guid tenantId,
+        Guid batchId,
+        string? reason,
+        CancellationToken cancellationToken = default);
 }

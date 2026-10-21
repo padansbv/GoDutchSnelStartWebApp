@@ -182,6 +182,42 @@ public sealed class MyPosExportBatchService : IMyPosExportBatchService
         return batches.Select(Map).ToList();
     }
 
+    public async Task<MyPosExportBatchDto> RevertExportAsync(
+        Guid tenantId,
+        Guid batchId,
+        string? reason,
+        CancellationToken cancellationToken = default)
+    {
+        if (tenantId == Guid.Empty)
+        {
+            throw new ArgumentException("TenantId is required.", nameof(tenantId));
+        }
+
+        var batch = await _exportBatchRepository.GetByIdAsync(batchId, cancellationToken);
+
+        if (batch is null || batch.TenantId != tenantId)
+        {
+            throw new KeyNotFoundException("myPOS export batch not found.");
+        }
+
+        if (batch.Status != MyPosExportBatchStatus.Exported)
+        {
+            throw new InvalidOperationException(
+                $"Alleen een geëxporteerde batch kan worden teruggedraaid. Huidige status: {batch.Status}.");
+        }
+
+        var nowUtc = DateTime.UtcNow;
+        var effectiveReason = string.IsNullOrWhiteSpace(reason)
+            ? "Teruggedraaid door gebruiker (handmatig verwijderd in SnelStart)."
+            : reason;
+
+        await _rawTransactionRepository.ResetExportedForBatchAsync(tenantId, batchId, cancellationToken);
+        await _exportBatchRepository.MarkRevertedAsync(batchId, effectiveReason, nowUtc, cancellationToken);
+
+        var reverted = await _exportBatchRepository.GetByIdAsync(batchId, cancellationToken);
+        return Map(reverted!);
+    }
+
     private static string BuildValidationMessage(
      int rawTransactionCount,
      IReadOnlyCollection<MyPosExportBatchLine> lines,

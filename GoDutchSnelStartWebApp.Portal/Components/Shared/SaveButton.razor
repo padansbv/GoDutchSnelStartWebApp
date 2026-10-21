@@ -1,0 +1,32 @@
+@inject IJSRuntime JS
+
+<button type="button" class="btn @ButtonClass d-print-none" @onclick="SaveAsync">
+    <span aria-hidden="true">💾</span> @Label
+</button>
+
+@code {
+    /// <summary>
+    /// Id van het DOM-element dat als zelfstandig HTML-bestand opgeslagen moet worden
+    /// (zelfde element als bij PrintButton kan hier ook gebruikt worden).
+    /// </summary>
+    [Parameter, EditorRequired]
+    public string TargetElementId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Basis van de bestandsnaam (zonder extensie); er wordt automatisch een datum/tijd-
+    /// stempel en .html achter geplakt.
+    /// </summary>
+    [Parameter]
+    public string FileNameBase { get; set; } = "export";
+
+    [Parameter]
+    public string Label { get; set; } = "Opslaan";
+
+    [Parameter]
+    public string ButtonClass { get; set; } = "btn-outline-secondary";
+
+    private async Task SaveAsync()
+    {
+        await JS.InvokeVoidAsync("saveElementById", TargetElementId, FileNameBase);
+    }
+}

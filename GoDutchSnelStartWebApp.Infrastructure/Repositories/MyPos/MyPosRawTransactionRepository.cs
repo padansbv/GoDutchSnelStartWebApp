@@ -239,6 +239,31 @@ public sealed class MyPosRawTransactionRepository : IMyPosRawTransactionReposito
         return await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    public async Task<int> ResetExportedForBatchAsync(
+        Guid tenantId,
+        Guid exportBatchId,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = _sqlConnectionFactory.CreateConnection(cancellationToken);
+        await connection.OpenAsync(cancellationToken);
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = "dbo.MyPosRawTransactions_ResetExportedForBatch";
+        command.CommandType = CommandType.StoredProcedure;
+
+        command.Parameters.Add(new SqlParameter("@TenantId", SqlDbType.UniqueIdentifier)
+        {
+            Value = tenantId
+        });
+
+        command.Parameters.Add(new SqlParameter("@ExportBatchId", SqlDbType.UniqueIdentifier)
+        {
+            Value = exportBatchId
+        });
+
+        return await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<string>> GetDistinctTransactionTypesAsync(Guid tenantId, CancellationToken cancellationToken = default)
     {
         await using var connection = _sqlConnectionFactory.CreateConnection();

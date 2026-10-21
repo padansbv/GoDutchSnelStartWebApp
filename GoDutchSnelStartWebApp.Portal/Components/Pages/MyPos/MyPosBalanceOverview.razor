@@ -116,8 +116,9 @@
 
 @if (result is not null)
 {
-    <div class="d-flex justify-content-end mb-2">
+    <div class="d-flex justify-content-end gap-2 mb-2">
         <PrintButton TargetElementId="print-area-mypos-overzicht" Label="Overzicht afdrukken" />
+        <SaveButton TargetElementId="print-area-mypos-overzicht" FileNameBase="@($"myPOS-overzicht-{fromDate:yyyy-MM-dd}_{toDate:yyyy-MM-dd}")" Label="Opslaan" />
     </div>
 
     <div id="print-area-mypos-overzicht" class="card mb-3">

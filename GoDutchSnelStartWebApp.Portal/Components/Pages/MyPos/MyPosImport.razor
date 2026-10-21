@@ -188,7 +188,7 @@
             </div>
 
             <div class="col-md-2">
-                <div class="form-check mb-2">
+                <div class="form-check mb-1">
                     <input class="form-check-input"
                            type="checkbox"
                            id="includeExported"
@@ -196,6 +196,12 @@
                     <label class="form-check-label" for="includeExported">
                         Inclusief export
                     </label>
+                </div>
+                <div class="form-text">
+                    Standaard worden al-geëxporteerde transacties overgeslagen bij het tonen/
+                    totaliseren en bij "Concept exportbatch aanmaken". Vink dit aan om ze wél
+                    mee te nemen — bijvoorbeeld om een batch opnieuw te maken nadat de
+                    bijbehorende boeking in SnelStart is verwijderd.
                 </div>
             </div>
         </div>
@@ -399,7 +405,10 @@
                         <span>Exportbatch</span>
                         @if (currentExportBatch is not null)
                         {
-                            <PrintButton TargetElementId="print-area-exportbatch" Label="Exportbatch afdrukken" />
+                            <div class="d-flex gap-2">
+                                <PrintButton TargetElementId="print-area-exportbatch" Label="Exportbatch afdrukken" />
+                                <SaveButton TargetElementId="print-area-exportbatch" FileNameBase="@($"myPOS-exportbatch-{currentExportBatch.PeriodFromLocalDate:yyyy-MM}")" Label="Opslaan" />
+                            </div>
                         }
                     </div>
                     <div class="card-body">
@@ -428,14 +437,7 @@
                             <div class="row g-3">
                                 <div class="col-md-2">
                                     <strong>Status</strong><br />
-                                    @if (currentExportBatch.IsReadyForExport)
-                                    {
-                                        <span class="badge bg-success">@currentExportBatch.Status</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge bg-warning text-dark">@currentExportBatch.Status</span>
-                                    }
+                                    <span class="badge @StatusBadgeClass(currentExportBatch.Status)">@currentExportBatch.Status</span>
                                 </div>
 
                                 <div class="col-md-2">
@@ -490,6 +492,16 @@
                                 </div>
                             }
 
+                            @if (string.Equals(currentExportBatch.Status, "Reverted", StringComparison.OrdinalIgnoreCase) &&
+                                 !string.IsNullOrWhiteSpace(currentExportBatch.ErrorMessage))
+                            {
+                                <div class="alert alert-secondary mt-3 mb-0">
+                                    <strong>Teruggedraaid:</strong> @currentExportBatch.ErrorMessage
+                                    De raw transacties van deze batch zijn weer vrijgegeven; maak hierboven een nieuwe
+                                    conceptbatch aan (evt. met "Inclusief export" aan) om opnieuw te exporteren.
+                                </div>
+                            }
+
                             @if (currentExportBatch is not null)
                             {
                                 <div class="mt-3 d-flex gap-2 d-print-none">
@@ -506,6 +518,16 @@
                                             <span>Exporteren naar SnelStart</span>
                                         }
                                     </button>
+
+                                    @if (string.Equals(currentExportBatch.Status, "Exported", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        <button type="button"
+                                                class="btn btn-outline-danger"
+                                                disabled="@isRevertingBatch"
+                                                @onclick="() => RevertExportBatchAsync(currentExportBatch)">
+                                            @(isRevertingBatch ? "Terugdraaien..." : "Exportbatch ongedaan maken")
+                                        </button>
+                                    }
                                 </div>
                             }
 
@@ -776,6 +798,17 @@
 
     private bool isExportingBatch;
     private Guid? exportingBatchId;
+    private bool isRevertingBatch;
+
+    private static string StatusBadgeClass(string status) => status switch
+    {
+        "Ready" => "bg-success",
+        "Exported" => "bg-primary",
+        "Concept" => "bg-secondary",
+        "Failed" or "ExportFailed" => "bg-danger",
+        "Reverted" => "bg-dark",
+        _ => "bg-secondary"
+    };
 
     private bool CanExportCurrentBatch =>
         currentExportBatch is not null &&
@@ -1634,6 +1667,51 @@
 
             isExportingBatch = false;
             exportingBatchId = null;
+        }
+    }
+
+    private async Task RevertExportBatchAsync(MyPosExportBatchViewModel batch)
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        if (batch is null || batch.Id == Guid.Empty)
+        {
+            errorMessage = "Geen geldige exportbatch geselecteerd.";
+            return;
+        }
+
+        var confirmed = await JSRuntime.InvokeAsync<bool>(
+            "confirm",
+            "Weet je zeker dat je deze export wilt terugdraaien?\n\n" +
+            "Gebruik dit alleen NADAT je de bijbehorende boeking handmatig in SnelStart hebt " +
+            "verwijderd -- deze actie verwijdert zelf niets in SnelStart, hij corrigeert alleen " +
+            "de status hier zodat je opnieuw een exportbatch kunt maken.");
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        isRevertingBatch = true;
+
+        try
+        {
+            currentExportBatch = await BackendApiClient.RevertMyPosExportBatchAsync(TenantId, batch.Id, null);
+
+            successMessage = "Exportbatch is teruggedraaid. De raw transacties zijn weer vrijgegeven voor een nieuwe batch.";
+
+            await LoadExportBatchesForCurrentPeriodAsync();
+            await RefreshRawTransactionsAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "myPOS exportbatch terugdraaien mislukt. BatchId: {BatchId}", batch.Id);
+            errorMessage = $"Exportbatch terugdraaien mislukt: {ex.Message}";
+        }
+        finally
+        {
+            isRevertingBatch = false;
         }
     }
 }

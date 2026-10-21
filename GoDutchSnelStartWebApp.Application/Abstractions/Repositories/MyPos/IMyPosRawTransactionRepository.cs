@@ -21,4 +21,14 @@ public interface IMyPosRawTransactionRepository
      CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<string>> GetDistinctTransactionTypesAsync(Guid tenantId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Maakt raw transacties die aan een specifieke exportbatch gekoppeld waren weer vrij
+    /// (IsExported=0, ExportBatchId=NULL), zodat ze weer in een nieuwe batch kunnen.
+    /// Gebruikt bij het terugdraaien van een export (MyPosExportBatchStatus.Reverted).
+    /// </summary>
+    Task<int> ResetExportedForBatchAsync(
+        Guid tenantId,
+        Guid exportBatchId,
+        CancellationToken cancellationToken = default);
 }

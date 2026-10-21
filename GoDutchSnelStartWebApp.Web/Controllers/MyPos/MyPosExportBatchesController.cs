@@ -108,6 +108,34 @@ public sealed class MyPosExportBatchesController : ControllerBase
         return Ok(batch);
     }
 
+    [HttpPost("{batchId:guid}/revert")]
+    [ProducesResponseType(typeof(MyPosExportBatchDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<MyPosExportBatchDto>> RevertExportAsync(
+        Guid tenantId,
+        Guid batchId,
+        [FromBody] RevertMyPosExportBatchRequest? request,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation(
+            "myPOS exportbatch terugdraaien gestart. TenantId: {TenantId}, BatchId: {BatchId}.",
+            tenantId,
+            batchId);
+
+        var batch = await _exportBatchService.RevertExportAsync(
+            tenantId,
+            batchId,
+            request?.Reason,
+            cancellationToken);
+
+        _logger.LogInformation(
+            "myPOS exportbatch teruggedraaid. BatchId: {BatchId}, Status: {Status}.",
+            batch.Id,
+            batch.Status);
+
+        return Ok(batch);
+    }
+
     [HttpPost("{batchId:guid}/export/snelstart-bankboek")]
     public async Task<ActionResult<MyPosExportBatchExportResultDto>> ExportToSnelStartBankboekAsync(
     Guid tenantId,

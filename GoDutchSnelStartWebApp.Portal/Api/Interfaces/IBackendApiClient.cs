@@ -184,6 +184,12 @@ public interface IBackendApiClient
     Guid batchId,
     CancellationToken cancellationToken = default);
 
+    Task<MyPosExportBatchViewModel> RevertMyPosExportBatchAsync(
+    Guid tenantId,
+    Guid batchId,
+    string? reason,
+    CancellationToken cancellationToken = default);
+
     Task<MyPosAutoSyncSettingsViewModel> GetMyPosAutoSyncSettingsAsync(
         CancellationToken cancellationToken = default);
 

@@ -20,4 +20,15 @@ public interface IMyPosExportBatchRepository
         string errorMessage,
         DateTime modifiedUtc,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Draait een eerder geëxporteerde batch lokaal terug (nadat de bijbehorende boeking
+    /// handmatig in SnelStart is verwijderd). Zet Status op Reverted; raakt de raw
+    /// transacties niet aan -- dat doet IMyPosRawTransactionRepository.ResetExportedForBatchAsync.
+    /// </summary>
+    Task MarkRevertedAsync(
+        Guid batchId,
+        string reason,
+        DateTime modifiedUtc,
+        CancellationToken cancellationToken = default);
 }

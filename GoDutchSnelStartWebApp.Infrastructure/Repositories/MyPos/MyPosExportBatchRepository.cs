@@ -455,6 +455,38 @@ public sealed class MyPosExportBatchRepository : IMyPosExportBatchRepository
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    public async Task MarkRevertedAsync(
+        Guid batchId,
+        string reason,
+        DateTime modifiedUtc,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = _sqlConnectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        await using var command = new SqlCommand("dbo.MyPosExportBatches_MarkReverted", connection)
+        {
+            CommandType = CommandType.StoredProcedure
+        };
+
+        command.Parameters.Add(new SqlParameter("@Id", SqlDbType.UniqueIdentifier)
+        {
+            Value = batchId
+        });
+
+        command.Parameters.Add(new SqlParameter("@Reason", SqlDbType.NVarChar, 2000)
+        {
+            Value = reason
+        });
+
+        command.Parameters.Add(new SqlParameter("@ModifiedUtc", SqlDbType.DateTime2)
+        {
+            Value = modifiedUtc
+        });
+
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
     private static string? GetNullableString(SqlDataReader reader, string name)
     {
         var ordinal = reader.GetOrdinal(name);

@@ -1001,6 +1001,36 @@ public sealed class BackendApiClient : IBackendApiClient
         return result;
     }
 
+    public async Task<MyPosExportBatchViewModel> RevertMyPosExportBatchAsync(
+        Guid tenantId,
+        Guid batchId,
+        string? reason,
+        CancellationToken cancellationToken = default)
+    {
+        var url = $"api/tenants/{tenantId:D}/mypos/export-batches/{batchId:D}/revert";
+        var payload = new RevertMyPosExportBatchRequestViewModel { Reason = reason };
+
+        using var response = await _httpClient.PostAsJsonAsync(url, payload, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            throw new InvalidOperationException(
+                $"myPOS exportbatch terugdraaien mislukt. HTTP {(int)response.StatusCode}: {error}");
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<MyPosExportBatchViewModel>(
+            cancellationToken: cancellationToken);
+
+        if (result is null)
+        {
+            throw new InvalidOperationException("myPOS exportbatch-resultaat was leeg.");
+        }
+
+        return result;
+    }
+
     public async Task<MyPosAutoSyncSettingsViewModel> GetMyPosAutoSyncSettingsAsync(
         CancellationToken cancellationToken = default)
     {
