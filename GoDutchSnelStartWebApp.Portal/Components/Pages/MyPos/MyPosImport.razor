@@ -1407,6 +1407,7 @@
         finally
         {
             isCreatingExportBatch = false;
+            await ScrollToTopAsync();
         }
     }
     private static string FormatDate(DateTime? value)
@@ -1667,6 +1668,7 @@
 
             isExportingBatch = false;
             exportingBatchId = null;
+            await ScrollToTopAsync();
         }
     }
 
@@ -1712,6 +1714,19 @@
         finally
         {
             isRevertingBatch = false;
+            await ScrollToTopAsync();
+        }
+    }
+
+    private async Task ScrollToTopAsync()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("scrollToTop");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "scrollToTop JS-interop mislukt.");
         }
     }
 }

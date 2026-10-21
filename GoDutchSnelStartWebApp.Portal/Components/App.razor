@@ -42,6 +42,19 @@
             }
         }
 
+        // Scrollt terug naar boven, zodat een succes/foutmelding die bovenaan de pagina
+        // verschijnt ook echt zichtbaar is wanneer de gebruiker verderop op de pagina stond
+        // (bv. na het exporteren van een myPOS-batch naar SnelStart). Op desktop scrollt niet
+        // het browservenster maar de #app-content-sectie zelf (overflow-y:auto in de layout);
+        // op mobiel (waar #app-content normale documentflow heeft) valt dat samen met het venster.
+        function scrollToTop() {
+            var el = document.getElementById('app-content');
+            if (el) {
+                el.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
         // Print alleen een specifiek onderdeel van de pagina via het Windows-printmenu
         // (window.print() opent het native OS-printdialoogvenster incl. printerselectie).
         // Herbruikbaar: elk onderdeel dat afdrukbaar moet zijn krijgt gewoon een eigen id.
