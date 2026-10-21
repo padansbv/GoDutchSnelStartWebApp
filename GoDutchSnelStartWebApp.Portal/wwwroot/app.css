@@ -137,4 +137,52 @@ h1:focus {
     body.print-scoping #print-clone-area {
         display: block !important;
     }
+
+    /* Compacte afdrukstand: kleinere marges/padding zodat een kaart met wat tekst
+       (zoals de exportbatch-samenvatting) op 1 pagina past i.p.v. net over te lopen. */
+    @page {
+        margin: 10mm;
+    }
+
+    #print-clone-area {
+        font-size: 0.8rem;
+    }
+
+    #print-clone-area .card {
+        margin-bottom: 0.4rem !important;
+        border: none !important;
+    }
+
+    #print-clone-area .card-body {
+        padding: 0.5rem !important;
+    }
+
+    #print-clone-area .card-header {
+        padding: 0.35rem 0.5rem !important;
+    }
+
+    #print-clone-area p,
+    #print-clone-area .alert,
+    #print-clone-area .row {
+        margin-bottom: 0.35rem !important;
+        margin-top: 0.35rem !important;
+    }
+
+    #print-clone-area hr {
+        margin: 0.35rem 0 !important;
+    }
+
+    #print-clone-area table td,
+    #print-clone-area table th {
+        padding: 0.2rem 0.4rem !important;
+    }
+
+    #print-clone-area .batch-balance {
+        padding: 0.5rem !important;
+        margin-top: 0.4rem !important;
+    }
+
+    #print-clone-area .batch-balance-row {
+        margin-bottom: 0.2rem !important;
+    }
 }
