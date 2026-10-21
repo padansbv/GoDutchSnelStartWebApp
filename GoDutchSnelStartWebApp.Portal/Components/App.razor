@@ -45,21 +45,39 @@
         // Print alleen een specifiek onderdeel van de pagina via het Windows-printmenu
         // (window.print() opent het native OS-printdialoogvenster incl. printerselectie).
         // Herbruikbaar: elk onderdeel dat afdrukbaar moet zijn krijgt gewoon een eigen id.
+        //
+        // Het doel-element wordt (met zijn HTML) gekopieerd naar een losse container die
+        // direct onder <body> hangt. Zo'n kopie, buiten de menu/layout-structuur om, print
+        // altijd netjes vanaf pagina 1 -- in tegenstelling tot "verberg de rest met
+        // visibility:hidden", wat bij een flex/grid-layout lege paginas opleverde omdat
+        // verborgen elementen hun ruimte bleven innemen.
         function printElementById(elementId) {
             var target = document.getElementById(elementId);
             if (!target) {
                 return;
             }
 
+            var existing = document.getElementById('print-clone-area');
+            if (existing) {
+                existing.remove();
+            }
+
+            var clone = document.createElement('div');
+            clone.id = 'print-clone-area';
+            clone.innerHTML = target.innerHTML;
+            document.body.appendChild(clone);
+
             document.body.classList.add('print-scoping');
-            target.classList.add('print-target');
 
             var cleanedUp = false;
             function cleanup() {
                 if (cleanedUp) return;
                 cleanedUp = true;
                 document.body.classList.remove('print-scoping');
-                target.classList.remove('print-target');
+                var el = document.getElementById('print-clone-area');
+                if (el) {
+                    el.remove();
+                }
                 window.removeEventListener('afterprint', cleanup);
             }
 

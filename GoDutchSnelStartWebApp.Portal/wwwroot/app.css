@@ -119,23 +119,22 @@ h1:focus {
     opacity: 0;
 }
 
-/* Afdrukken van één specifiek onderdeel (PrintButton-component): alles behalve het
-   gemarkeerde .print-target wordt bij het afdrukken verborgen, zodat het Windows-
-   printdialoogvenster alleen dat onderdeel laat zien i.p.v. de hele pagina met menu. */
+/* Afdrukken van één specifiek onderdeel (PrintButton-component). De JS-helper
+   printElementById() kopieert het doel-element naar #print-clone-area, een losse
+   container direct onder <body>. Op het scherm blijft die kopie verborgen; bij het
+   afdrukken wordt alles ANDERS verborgen (display:none, niet alleen visibility) zodat
+   verborgen elementen geen ruimte meer innemen -- dat gaf eerder lege paginas bij een
+   flex/grid-layout (menu + content naast elkaar). */
+#print-clone-area {
+    display: none;
+}
+
 @media print {
-    body.print-scoping * {
-        visibility: hidden !important;
+    body.print-scoping > *:not(#print-clone-area) {
+        display: none !important;
     }
 
-    body.print-scoping .print-target,
-    body.print-scoping .print-target * {
-        visibility: visible !important;
-    }
-
-    body.print-scoping .print-target {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
+    body.print-scoping #print-clone-area {
+        display: block !important;
     }
 }
