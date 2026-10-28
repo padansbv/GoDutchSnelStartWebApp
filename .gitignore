@@ -36,3 +36,6 @@ appsettings.Production.json
 # Publish / static output
 public/
 publish/
+
+# Diagnostics
+gcm-diagnose.log
