@@ -1,7 +1,9 @@
+@using GoDutchSnelStartWebApp.Portal.Api.Interfaces
 @using GoDutchSnelStartWebApp.Portal.Configuration
 @using Microsoft.Extensions.Options
 
 @inject IBackendApiClient BackendApiClient
+@inject IGoDutchBackendApiClient GoDutchBackendApiClient
 @inject IOptions<PortalTenantOptions> TenantOptions
 @inject AppSession Session
 
@@ -34,6 +36,17 @@
                 }
             </span>
         }
+        @if (ShowGoDutch)
+        {
+            <span class="conn-badge @(_goDutchActive ? "conn-badge-ok" : "conn-badge-warn")">
+                <span>@(_goDutchActive ? "✓" : "⚠")</span>
+                <span>GoDutch-koppeling @(_goDutchActive ? "actief" : "niet actief")</span>
+                @if (!_goDutchActive)
+                {
+                    <a href="/bankaccounts">instellen</a>
+                }
+            </span>
+        }
     }
 </div>
 
@@ -44,11 +57,15 @@
     /// <summary>Toon de status van de myPOS-koppeling.</summary>
     [Parameter] public bool ShowMyPos { get; set; }
 
+    /// <summary>Toon de status van de GoDutch-koppeling.</summary>
+    [Parameter] public bool ShowGoDutch { get; set; }
+
     private Guid TenantId => Session.TenantId ?? TenantOptions.Value.TenantId;
 
     private bool _loading = true;
     private bool _snelStartActive;
     private bool _myPosActive;
+    private bool _goDutchActive;
 
     protected override async Task OnInitializedAsync()
     {
@@ -68,6 +85,16 @@
             {
                 var c = await BackendApiClient.GetTenantMyPosConnectionAsync(TenantId);
                 _myPosActive = c is { IsActive: true, HasClientSecret: true };
+            }
+            catch { /* idem */ }
+        }
+
+        if (ShowGoDutch)
+        {
+            try
+            {
+                var c = await GoDutchBackendApiClient.GetTenantGoDutchConnectionAsync(TenantId);
+                _goDutchActive = c is { IsActive: true, HasPassword: true };
             }
             catch { /* idem */ }
         }

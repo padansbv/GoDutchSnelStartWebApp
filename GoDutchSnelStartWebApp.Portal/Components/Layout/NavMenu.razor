@@ -31,6 +31,11 @@
         <div class="app-nav-section">
             <div class="app-nav-heading-dark">GoDutch</div>
 
+            <NavLink class="app-nav-link" @onclick="ScrollToContent" href="godutch/stappenplan" Match="NavLinkMatch.Prefix">
+                <span class="app-nav-link-icon">✅</span>
+                <span>Stappenplan</span>
+            </NavLink>
+
             <NavLink class="app-nav-link" @onclick="ScrollToContent" href="bankaccounts" Match="NavLinkMatch.Prefix">
                 <span class="app-nav-link-icon">🏦</span>
                 <span>Bankaccounts</span>

@@ -428,6 +428,58 @@
                                 </div>
                             </div>
 
+                            <div class="col-12">
+                                <div class="cred-help-toggle">
+                                    <button type="button" class="cred-help-btn" @onclick="() => showDagboekHelp = !showDagboekHelp">
+                                        <span>ℹ️</span>
+                                        <span>Hoe kies ik het juiste dagboek en grootboek?</span>
+                                        <span class="cred-help-chevron">@(showDagboekHelp ? "▲" : "▼")</span>
+                                    </button>
+                                </div>
+                                @if (showDagboekHelp)
+                                {
+                                    <div class="cred-help-panel mt-2">
+                                        <p class="cred-help-intro">Dagboek</p>
+                                        <ol class="cred-help-steps">
+                                            <li>
+                                                Een <strong>dagboek</strong> is in SnelStart het bankdagboek waarin de
+                                                afschriften van déze bankrekening worden geboekt. Elke GoDutch-bankrekening
+                                                moet gekoppeld worden aan precies één SnelStart-bankdagboek.
+                                            </li>
+                                            <li>
+                                                Bestaat dat dagboek nog niet? Maak het eerst aan in SnelStart zelf, met
+                                                hetzelfde IBAN als deze bankrekening. Kom daarna terug en klik op
+                                                <strong>Dagboeken en grootboeken ophalen uit SnelStart</strong> om de lijst
+                                                te verversen.
+                                            </li>
+                                            <li>
+                                                Kies het dagboek in de lijst <strong>Dagboek kiezen</strong>. De velden
+                                                DagboekId, code en naam worden automatisch ingevuld — deze hoeft u niet
+                                                zelf te typen.
+                                            </li>
+                                        </ol>
+                                        <p class="cred-help-intro">Grootboek</p>
+                                        <ol class="cred-help-steps">
+                                            <li>
+                                                Het <strong>grootboek</strong> is de grootboekrekening waarop transacties
+                                                van dit dagboek standaard worden geboekt (bijvoorbeeld een tussenrekening
+                                                of liquide-middelenrekening). Dit is dezelfde grootboekrekening die u ook
+                                                normaal aan het bankdagboek koppelt in SnelStart.
+                                            </li>
+                                            <li>
+                                                Kies hem via <strong>Grootboek kiezen</strong>, op dezelfde manier als het
+                                                dagboek. Staat de juiste rekening er niet bij, maak hem dan eerst aan in
+                                                SnelStart en ververs de lijst opnieuw.
+                                            </li>
+                                        </ol>
+                                        <p class="cred-help-intro mb-0" style="font-weight:400;">
+                                            Beide lijsten komen rechtstreeks uit uw SnelStart-administratie via de
+                                            SnelStart-koppeling van deze bankrekening — er kan dus niets fout getypt worden.
+                                        </p>
+                                    </div>
+                                }
+                            </div>
+
                             <div class="col-12 col-md-6">
                                 <label class="form-label">Exportformaat</label>
                                 <InputSelect class="form-select"
@@ -780,6 +832,7 @@
     private bool isResyncing;
     private bool isSavingSnelStartSettings;
     private bool isEditingSnelStartSettings;
+    private bool showDagboekHelp;
     private bool isSavingAutoSyncSettings;
     private bool isSavingBankAccountStatus;
 
@@ -1775,3 +1828,68 @@
         }
     }
 }
+<style>
+    .cred-help-toggle {
+        border: 1px solid #BFDBFE;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .cred-help-btn {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        background: #EFF6FF;
+        border: none;
+        padding: 11px 16px;
+        font-size: .88rem;
+        font-weight: 600;
+        color: #1D4ED8;
+        cursor: pointer;
+        text-align: left;
+        transition: background .15s;
+    }
+
+    .cred-help-btn:hover {
+        background: #DBEAFE;
+    }
+
+    .cred-help-chevron {
+        margin-left: auto;
+        font-size: .75rem;
+        color: #3B82F6;
+    }
+
+    .cred-help-panel {
+        background: #F8FAFF;
+        border: 1px solid #BFDBFE;
+        border-radius: 10px;
+        padding: 16px 20px;
+    }
+
+    .cred-help-intro {
+        font-size: .87rem;
+        color: #1E3A5F;
+        margin-bottom: 10px;
+        font-weight: 600;
+    }
+
+    .cred-help-steps {
+        margin: 0 0 14px 0;
+        padding-left: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .cred-help-steps:last-of-type {
+        margin-bottom: 0;
+    }
+
+    .cred-help-steps li {
+        font-size: .86rem;
+        color: #374151;
+        line-height: 1.55;
+    }
+</style>

@@ -81,6 +81,13 @@
                     <div class="form-text">
                         @(tenantGoDutchConnection.HasPassword ? "Laat leeg om ongewijzigd te laten." : "Vul het wachtwoord in om te activeren.")
                     </div>
+                    <div class="cred-help-toggle mt-2">
+                        <button type="button" class="cred-help-btn" @onclick="() => showGoDutchCredHelp = !showGoDutchCredHelp">
+                            <span>ℹ️</span>
+                            <span>Hoe kom ik aan mijn GoDutch API-gegevens?</span>
+                            <span class="cred-help-chevron">@(showGoDutchCredHelp ? "▲" : "▼")</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="col-md-4">
@@ -112,6 +119,37 @@
                     <div class="form-text mt-2">
                         Deze gegevens gelden voor uw account. Bankaccount-instellingen bevatten straks alleen nog SnelStart/configuratie.
                     </div>
+
+                    @if (showGoDutchCredHelp)
+                    {
+                        <div class="cred-help-panel mt-2">
+                            <p class="cred-help-intro">Zo komt u aan uw GoDutch API base-URL, gebruikersnaam en wachtwoord:</p>
+                            <ol class="cred-help-steps">
+                                <li>
+                                    Deze gegevens maakt u niet zelf aan in een portaal — ze worden door
+                                    <strong>GoDutch</strong> aan u uitgegeven zodra u API-toegang aanvraagt.
+                                </li>
+                                <li>
+                                    Neem contact op met uw GoDutch-accountbeheerder of de GoDutch-support en vraag
+                                    om <strong>REST API-toegang</strong> voor deze onderneming/bankrekening(en).
+                                </li>
+                                <li>
+                                    U ontvangt van GoDutch een <strong>API base-URL</strong> (standaard
+                                    <code>https://backend.godutch.com/</code>, tenzij GoDutch iets anders opgeeft),
+                                    een <strong>gebruikersnaam</strong> en een <strong>wachtwoord</strong> die specifiek
+                                    bij deze koppeling horen.
+                                </li>
+                                <li>
+                                    Vul de drie waarden hierboven in en klik op <strong>GoDutch credentials opslaan</strong>.
+                                    Daarna kunt u met <strong>GoDutch bankrekeningen ophalen</strong> uw rekeningen inladen.
+                                </li>
+                            </ol>
+                            <p class="cred-help-intro mb-0" style="font-weight:400;">
+                                Twijfelt u over de juiste gegevens? Neem dan contact op met GoDutch — zij kunnen de
+                                API-toegang voor uw account bevestigen of opnieuw uitgeven.
+                            </p>
+                        </div>
+                    }
                 </div>
             </div>
         </div>
@@ -342,6 +380,7 @@
     private bool isResyncing;
     private bool isRefreshingStatuses;
     private bool isSavingTenantGoDutchConnection;
+    private bool showGoDutchCredHelp;
     private bool isLoadingGoDutchAccounts;
     private bool isCreatingBankAccountFromGoDutch;
     private bool isSyncingNames;
@@ -912,3 +951,71 @@
         public string? SnelStartAdminName { get; set; }
     }
 }
+
+<style>
+    .cred-help-toggle {
+        border: 1px solid #BFDBFE;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .cred-help-btn {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        background: #EFF6FF;
+        border: none;
+        padding: 11px 16px;
+        font-size: .88rem;
+        font-weight: 600;
+        color: #1D4ED8;
+        cursor: pointer;
+        text-align: left;
+        transition: background .15s;
+    }
+
+    .cred-help-btn:hover {
+        background: #DBEAFE;
+    }
+
+    .cred-help-chevron {
+        margin-left: auto;
+        font-size: .75rem;
+        color: #3B82F6;
+    }
+
+    .cred-help-panel {
+        background: #F8FAFF;
+        border: 1px solid #BFDBFE;
+        border-radius: 10px;
+        padding: 16px 20px;
+    }
+
+    .cred-help-intro {
+        font-size: .87rem;
+        color: #1E3A5F;
+        margin-bottom: 10px;
+        font-weight: 600;
+    }
+
+    .cred-help-steps {
+        margin: 0;
+        padding-left: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .cred-help-steps li {
+        font-size: .86rem;
+        color: #374151;
+        line-height: 1.55;
+    }
+
+    .cred-help-steps code {
+        background: #EEF2FF;
+        padding: 1px 5px;
+        border-radius: 4px;
+    }
+</style>
