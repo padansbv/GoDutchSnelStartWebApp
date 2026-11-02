@@ -17,10 +17,16 @@
         <!-- ── Hero / linkerpaneel ── -->
         <div class="landing-hero">
             <div class="landing-brand">
-                <div class="landing-brand-logo">GS</div>
-                <div>
-                    <div class="landing-brand-title">GoDutch MyPos SnelStart</div>
-                    <div class="landing-brand-sub">Slimme boekhoudkoppelingen</div>
+                <div class="landing-brand-info">
+                    <div class="landing-brand-logo">GS</div>
+                    <div>
+                        <div class="landing-brand-title">GoDutch MyPos SnelStart</div>
+                        <div class="landing-brand-sub">Slimme boekhoudkoppelingen</div>
+                    </div>
+                </div>
+                <div class="landing-brand-actions">
+                    <button type="button" class="landing-auth-btn landing-auth-btn-outline" @onclick="OpenLogin">Inloggen</button>
+                    <button type="button" class="landing-auth-btn landing-auth-btn-solid" @onclick="OpenRegister">Account aanmaken</button>
                 </div>
             </div>
 
@@ -93,9 +99,15 @@
             </div>
         </div>
 
-        <!-- ── Rechterpaneel: Inloggen / Account aanmaken ── -->
-        <div class="landing-login-panel">
-            <div class="login-card">
+        @if (_showAuthModal)
+        {
+            <!-- ── Popup: Inloggen / Account aanmaken ── -->
+            <div class="landing-login-panel" @onclick="CloseAuthModal">
+                <div class="login-card" @onclick:stopPropagation="true">
+
+                <div class="login-card-topbar">
+                    <button type="button" class="login-cancel-btn" @onclick="CloseAuthModal">✕ Annuleren</button>
+                </div>
 
                 @if (_registerSuccess)
                 {
@@ -286,13 +298,15 @@
                     }
                 }
 
+                </div>
             </div>
-        </div>
+        }
 
     </div>
 }
 
 @code {
+    private bool _showAuthModal;
     private bool _showRegister;
     private bool _showForgotPassword;
     private bool _showPw;
@@ -302,7 +316,32 @@
         var uri = new Uri(Navigation.Uri);
         var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
         if (query.ContainsKey("register"))
+        {
             _showRegister = true;
+            _showAuthModal = true;
+        }
+    }
+
+    private void OpenLogin()
+    {
+        _showAuthModal = true;
+        _showRegister = false;
+        _showForgotPassword = false;
+        _registerSuccess = false;
+    }
+
+    private void OpenRegister()
+    {
+        _showAuthModal = true;
+        _showRegister = true;
+        _showForgotPassword = false;
+        _registerSuccess = false;
+    }
+
+    private void CloseAuthModal()
+    {
+        _showAuthModal = false;
+        _showForgotPassword = false;
     }
     private bool _registerSuccess;
 
@@ -493,9 +532,53 @@
     .landing-brand {
         display: flex;
         align-items: center;
+        justify-content: space-between;
         gap: 14px;
         margin-bottom: 40px;
         flex-shrink: 0;
+        flex-wrap: wrap;
+    }
+
+    .landing-brand-info {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+
+    .landing-brand-actions {
+        display: flex;
+        gap: 10px;
+    }
+
+    .landing-auth-btn {
+        border-radius: 8px;
+        padding: 9px 18px;
+        font-size: .86rem;
+        font-weight: 700;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: background .15s, border-color .15s;
+    }
+
+    .landing-auth-btn-outline {
+        background: transparent;
+        border: 1.5px solid rgba(255,255,255,.55);
+        color: #ffffff;
+    }
+
+    .landing-auth-btn-outline:hover {
+        background: rgba(255,255,255,.12);
+        border-color: #ffffff;
+    }
+
+    .landing-auth-btn-solid {
+        background: #ffffff;
+        border: 1.5px solid #ffffff;
+        color: #0057AD;
+    }
+
+    .landing-auth-btn-solid:hover {
+        background: #EAF4FF;
     }
 
     .landing-brand-logo {
@@ -672,6 +755,27 @@
         width: 100%;
         max-width: 370px;
         box-shadow: 0 20px 60px rgba(0, 20, 50, .35);
+    }
+
+    /* ── Annuleren (popup sluiten) ──────────────────────────────── */
+    .login-card-topbar {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 4px;
+    }
+
+    .login-cancel-btn {
+        background: none;
+        border: none;
+        color: #6B7280;
+        font-size: .82rem;
+        font-weight: 600;
+        cursor: pointer;
+        padding: 4px 6px;
+    }
+
+    .login-cancel-btn:hover {
+        color: #374151;
     }
 
     /* ── Tabs ───────────────────────────────────────────────────── */
