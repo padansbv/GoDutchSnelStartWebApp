@@ -648,15 +648,21 @@
         flex-shrink: 0;
     }
 
-    /* ── Rechterpaneel ──────────────────────────────────────────── */
+    /* ── Inlogkaart als modaal popupscherm ─────────────────────────
+       position:fixed haalt dit paneel uit de flex-flow van .landing-page,
+       zodat .landing-hero vanzelf de volledige breedte inneemt en de
+       inlogkaart als een echte popup met donkere overlay zweeft. ──── */
     .landing-login-panel {
-        flex: 0 0 420px;
-        background: #F3F7FB;
+        position: fixed;
+        inset: 0;
+        background: rgba(10, 20, 35, .55);
+        backdrop-filter: blur(2px);
         display: flex;
         align-items: center;
         justify-content: center;
         padding: 40px 28px;
         overflow-y: auto;
+        z-index: 1500;
     }
 
     .login-card {
@@ -665,7 +671,7 @@
         padding: 32px 32px 28px 32px;
         width: 100%;
         max-width: 370px;
-        box-shadow: 0 8px 32px rgba(0, 46, 92, .10);
+        box-shadow: 0 20px 60px rgba(0, 20, 50, .35);
     }
 
     /* ── Tabs ───────────────────────────────────────────────────── */
@@ -886,9 +892,7 @@
         }
 
         .landing-login-panel {
-            flex: none;
-            padding: 24px 16px 40px 16px;
-            overflow-y: visible;
+            padding: 24px 16px;
         }
 
         .login-card {
