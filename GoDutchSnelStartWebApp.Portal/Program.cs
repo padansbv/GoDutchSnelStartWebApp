@@ -2,6 +2,7 @@ using GoDutchSnelStartWebApp.Portal.Api.Interfaces;
 using GoDutchSnelStartWebApp.Portal.Components;
 using GoDutchSnelStartWebApp.Portal.Configuration;
 using GoDutchSnelStartWebApp.Portal.Api.Services;
+using GoDutchSnelStartWebApp.Portal.Http;
 using GoDutchSnelStartWebApp.Portal.Services;
 using Serilog;
 using Serilog.Events;
@@ -34,21 +35,23 @@ namespace GoDutchSnelStartWebApp.Portal
                 .AddInteractiveServerComponents();
             var apiBaseUrl = builder.Configuration["BackendApi:BaseUrl"] ?? "http://localhost:5275/";
 
+            builder.Services.Configure<PortalTenantOptions>(
+                    builder.Configuration.GetSection(PortalTenantOptions.SectionName));
+            builder.Services.AddScoped<AppSession>();
+            builder.Services.AddTransient<SessionExpiryHandler>();
+
             builder.Services.AddHttpClient<IBackendApiClient, BackendApiClient>(client =>
             {
                 client.BaseAddress = new Uri(apiBaseUrl);
                 // Het myPOS saldo-overzicht kan bij brede periodes (veel myPOS-paginas)
                 // meerdere minuten duren; de default van 100s is daarvoor te krap.
                 client.Timeout = TimeSpan.FromMinutes(10);
-            });
-            builder.Services.Configure<PortalTenantOptions>(
-                    builder.Configuration.GetSection(PortalTenantOptions.SectionName));
-            builder.Services.AddScoped<AppSession>();
+            }).AddHttpMessageHandler<SessionExpiryHandler>();
 
             builder.Services.AddHttpClient<IGoDutchBackendApiClient, GoDutchBackendApiClient>(client =>
             {
                 client.BaseAddress = new Uri(apiBaseUrl);
-            });
+            }).AddHttpMessageHandler<SessionExpiryHandler>();
 
             var app = builder.Build();
 

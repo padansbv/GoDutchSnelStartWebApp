@@ -12,6 +12,7 @@ public sealed class AppSession
     public bool SnelStartKeyExpired { get; private set; }
     public bool SnelStartKeyExpiringSoon { get; private set; }
     public int? SnelStartKeyExpiresInDays { get; private set; }
+    public bool SessionExpired { get; private set; }
 
     public event Action? OnChange;
 
@@ -47,6 +48,24 @@ public sealed class AppSession
         NotifyChanged();
     }
 
+    public void MarkSessionExpired()
+    {
+        if (SessionExpired)
+            return;
+
+        SessionExpired = true;
+        NotifyChanged();
+    }
+
+    public void ClearSessionExpired()
+    {
+        if (!SessionExpired)
+            return;
+
+        SessionExpired = false;
+        NotifyChanged();
+    }
+
     public void Logout()
     {
         Username = string.Empty;
@@ -58,6 +77,7 @@ public sealed class AppSession
         SnelStartKeyExpired = false;
         SnelStartKeyExpiringSoon = false;
         SnelStartKeyExpiresInDays = null;
+        SessionExpired = false;
         IsLoggedIn = false;
         NotifyChanged();
     }

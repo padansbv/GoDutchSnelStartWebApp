@@ -1,0 +1,291 @@
+@using GoDutchSnelStartWebApp.Portal.Api.Interfaces
+@using GoDutchSnelStartWebApp.Portal.Models
+@using GoDutchSnelStartWebApp.Portal.Services
+@inject IBackendApiClient ApiClient
+@inject AppSession Session
+@inject IJSRuntime JSRuntime
+@inject ILogger<SessionExpiredModal> Logger
+@implements IDisposable
+
+@if (Session.IsLoggedIn && Session.SessionExpired)
+{
+    <div class="sem-overlay">
+        <div class="sem-card">
+            <div class="sem-icon">🔒</div>
+            <div class="sem-title">Sessie verlopen</div>
+            <p class="sem-desc">
+                Uw sessie is verlopen. Log opnieuw in om verder te gaan — de pagina blijft
+                gewoon staan zoals hij was.
+            </p>
+
+            <EditForm Model="@_model" OnValidSubmit="HandleReLogin" FormName="session-expired-form">
+                <div class="sem-field">
+                    <label>Module</label>
+                    <select class="form-select" @bind="_model.Module">
+                        <option value="">-- Selecteer module --</option>
+                        <option value="GoDutch">GoDutch → SnelStart</option>
+                        <option value="MyPos">MyPos → SnelStart</option>
+                        <option value="Beheerder">Beheerder</option>
+                    </select>
+                </div>
+                <div class="sem-field">
+                    <label>Gebruikersnaam</label>
+                    <input class="form-control" type="text" @bind="_model.Username"
+                           placeholder="gebruikersnaam" name="username" autocomplete="username" />
+                </div>
+                <div class="sem-field">
+                    <label>Wachtwoord</label>
+                    <div class="sem-pw-wrap">
+                        <input class="form-control" type="@(_showPw ? "text" : "password")"
+                               @bind="_model.Password"
+                               placeholder="wachtwoord" name="password" autocomplete="current-password" />
+                        <button type="button" class="sem-pw-toggle" @onclick="() => _showPw = !_showPw" tabindex="-1" title="@(_showPw ? "Verberg wachtwoord" : "Toon wachtwoord")">
+                            @if (_showPw)
+                            {
+                                <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                            }
+                            else
+                            {
+                                <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                            }
+                        </button>
+                    </div>
+                </div>
+
+                @if (_error is not null)
+                {
+                    <div class="sem-error">@_error</div>
+                }
+
+                <button class="sem-btn" type="submit" disabled="@_loading">
+                    @(_loading ? "Bezig…" : "Opnieuw inloggen")
+                </button>
+            </EditForm>
+
+            <button class="sem-logout-link" @onclick="HandleLogoutInstead">
+                Niet uw account? Uitloggen
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    private readonly LoginRequestViewModel _model = new();
+    private bool _showPw;
+    private bool _loading;
+    private string? _error;
+
+    protected override void OnInitialized()
+    {
+        Session.OnChange += OnSessionChanged;
+        PrefillFromSession();
+    }
+
+    private void OnSessionChanged()
+    {
+        if (Session.SessionExpired)
+            PrefillFromSession();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void PrefillFromSession()
+    {
+        _model.Module = Session.Module;
+        _model.Username = Session.Username;
+        _model.Password = string.Empty;
+        _error = null;
+    }
+
+    private async Task HandleReLogin()
+    {
+        if (string.IsNullOrWhiteSpace(_model.Module) || string.IsNullOrWhiteSpace(_model.Username))
+        {
+            _error = "Vul module en gebruikersnaam in.";
+            return;
+        }
+
+        _error = null;
+        _loading = true;
+
+        try
+        {
+            var user = await ApiClient.LoginAsync(_model);
+
+            if (user is null)
+            {
+                _error = "Gebruikersnaam of wachtwoord is onjuist.";
+                return;
+            }
+
+            if (!string.Equals(user.Module, _model.Module, StringComparison.OrdinalIgnoreCase))
+            {
+                _error = $"Dit account heeft geen toegang tot de module '{_model.Module}'.";
+                return;
+            }
+
+            await JSRuntime.InvokeVoidAsync("saveCredentials", _model.Username, _model.Password);
+            Logger.LogInformation("Sessie hersteld na verval: gebruiker={Username} module={Module}", user.Username, user.Module);
+            Session.ClearSessionExpired();
+            _model.Password = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Opnieuw inloggen na sessieverval mislukt voor {Username}", _model.Username);
+            _error = $"Fout: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task HandleLogoutInstead()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("sessionStorage.removeItem", "session_username");
+            await JSRuntime.InvokeVoidAsync("sessionStorage.removeItem", "session_module");
+            await JSRuntime.InvokeVoidAsync("sessionStorage.removeItem", "session_tenantname");
+            await JSRuntime.InvokeVoidAsync("sessionStorage.removeItem", "session_tenantid");
+        }
+        catch { /* niet-kritiek */ }
+        Session.Logout();
+    }
+
+    public void Dispose()
+    {
+        Session.OnChange -= OnSessionChanged;
+    }
+}
+
+<style>
+    .sem-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(10, 20, 35, .55);
+        backdrop-filter: blur(2px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+        padding: 20px;
+    }
+
+    .sem-card {
+        background: #ffffff;
+        border-radius: 20px;
+        padding: 32px 32px 28px 32px;
+        width: 100%;
+        max-width: 370px;
+        box-shadow: 0 20px 60px rgba(0, 20, 50, .35);
+        text-align: center;
+    }
+
+    .sem-icon {
+        font-size: 2rem;
+        margin-bottom: 8px;
+    }
+
+    .sem-title {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #111827;
+        margin-bottom: 8px;
+    }
+
+    .sem-desc {
+        font-size: .86rem;
+        color: #4B5563;
+        line-height: 1.5;
+        margin-bottom: 20px;
+    }
+
+    .sem-field {
+        margin-bottom: 14px;
+        text-align: left;
+    }
+
+    .sem-field label {
+        display: block;
+        font-weight: 600;
+        font-size: .84rem;
+        color: #374151;
+        margin-bottom: 5px;
+    }
+
+    .sem-error {
+        background: #FEF2F2;
+        border: 1px solid #FECACA;
+        color: #DC2626;
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-size: .84rem;
+        margin-bottom: 12px;
+        text-align: left;
+    }
+
+    .sem-btn {
+        width: 100%;
+        background: #0066CC;
+        color: #ffffff;
+        border: none;
+        border-radius: 10px;
+        padding: 13px;
+        font-size: .95rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background .15s;
+        margin-top: 4px;
+    }
+
+    .sem-btn:hover:not(:disabled) {
+        background: #0052A8;
+    }
+
+    .sem-btn:disabled {
+        opacity: .7;
+        cursor: not-allowed;
+    }
+
+    .sem-logout-link {
+        background: none;
+        border: none;
+        color: #6B7280;
+        font-size: .82rem;
+        font-weight: 600;
+        text-decoration: underline;
+        cursor: pointer;
+        margin-top: 16px;
+    }
+
+    .sem-logout-link:hover {
+        color: #374151;
+    }
+
+    .sem-pw-wrap {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .sem-pw-wrap .form-control {
+        padding-right: 40px;
+    }
+
+    .sem-pw-toggle {
+        position: absolute;
+        right: 10px;
+        background: none;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+        color: #6B7280;
+        display: flex;
+        align-items: center;
+        line-height: 1;
+    }
+
+    .sem-pw-toggle:hover {
+        color: #0066CC;
+    }
+</style>
