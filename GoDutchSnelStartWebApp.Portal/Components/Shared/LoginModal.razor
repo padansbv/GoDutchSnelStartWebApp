@@ -102,8 +102,8 @@
         @if (_showAuthModal)
         {
             <!-- ── Popup: Inloggen / Account aanmaken ── -->
-            <div class="landing-login-panel" @onclick="CloseAuthModal">
-                <div class="login-card" @onclick:stopPropagation="true">
+            <div class="landing-login-panel" @onmousedown="() => _backdropMouseDown = true" @onclick="HandleBackdropClick">
+                <div class="login-card" @onmousedown="() => _backdropMouseDown = false" @onmousedown:stopPropagation="true" @onclick:stopPropagation="true">
 
                 <div class="login-card-topbar">
                     <button type="button" class="login-cancel-btn" @onclick="CloseAuthModal">✕ Annuleren</button>
@@ -310,6 +310,18 @@
     private bool _showRegister;
     private bool _showForgotPassword;
     private bool _showPw;
+    private bool _backdropMouseDown;
+
+    private void HandleBackdropClick()
+    {
+        // Alleen sluiten als de klik écht op de achtergrond is begonnen (mousedown).
+        // Zo blijft tekst selecteren/slepen binnen het wachtwoordveld werken, ook als
+        // de muis tijdens het slepen even buiten de kaart komt — dan vuurt de click wel
+        // op de achtergrond, maar de mousedown begon binnen de kaart, dus sluiten we niet.
+        if (_backdropMouseDown)
+            CloseAuthModal();
+        _backdropMouseDown = false;
+    }
 
     protected override void OnInitialized()
     {
@@ -400,13 +412,14 @@
             await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", "session_require_pw_change", user.RequirePasswordChange ? "true" : "false");
             await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", "session_tenantid", user.TenantId?.ToString() ?? "");
 
-            var tenantId = user.TenantId ?? TenantOptions.Value.TenantId;
-            var tenantName = await ApiClient.GetTenantNameAsync(tenantId) ?? tenantId.ToString();
+            var tenantName = user.TenantId.HasValue
+                ? await ApiClient.GetTenantNameAsync(user.TenantId.Value) ?? user.TenantId.Value.ToString()
+                : "(geen tenant gekoppeld)";
             Session.SetTenantName(tenantName);
             await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", "session_tenantname", tenantName);
 
             Logger.LogInformation("Login: gebruiker={Username} module={Module} tenant={TenantName} tenantId={TenantId}",
-                user.Username, user.Module, tenantName, tenantId);
+                user.Username, user.Module, tenantName, user.TenantId);
 
             // SnelStart sleutelverval controleren voor GoDutch/MyPos gebruikers
             if (user.TenantId.HasValue && user.Module is "GoDutch" or "MyPos")

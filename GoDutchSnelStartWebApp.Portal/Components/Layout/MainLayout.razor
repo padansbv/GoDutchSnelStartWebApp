@@ -37,6 +37,17 @@
                 </div>
             </div>
 
+            @if (Session.TenantId is null && Session.Module != "Beheerder")
+            {
+                <div class="key-expiry-banner key-expiry-expired">
+                    <span class="key-expiry-icon">⚠️</span>
+                    <div>
+                        <strong>Geen tenant gekoppeld aan uw account</strong> — er kunnen hierdoor geen gegevens worden getoond of opgehaald.
+                        Neem contact op met de beheerder om dit te herstellen.
+                    </div>
+                </div>
+            }
+
             @if (Session.SnelStartKeyExpired)
             {
                 <div class="key-expiry-banner key-expiry-expired">
@@ -103,9 +114,9 @@
                 Session.Login(username, module, userId, requirePwChange, tenantId);
 
                 var tenantName = await JSRuntime.InvokeAsync<string?>("sessionStorage.getItem", "session_tenantname");
-                if (string.IsNullOrEmpty(tenantName))
+                if (string.IsNullOrEmpty(tenantName) && tenantId.HasValue)
                 {
-                    tenantName = await ApiClient.GetTenantNameAsync(tenantId ?? TenantOptions.Value.TenantId);
+                    tenantName = await ApiClient.GetTenantNameAsync(tenantId.Value);
                     if (!string.IsNullOrEmpty(tenantName))
                         await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", "session_tenantname", tenantName);
                 }
