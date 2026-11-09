@@ -218,7 +218,14 @@ else
                     <div class="row g-3">
                         <div class="col-md-5">
                             <label class="form-label">Maatwerksleutel</label>
-                            <input class="form-control" type="password" @bind="newAdmin.AdministrationClientKey" autocomplete="off" />
+                            <input type="text" style="display:none" aria-hidden="true" tabindex="-1" />
+                            <input type="password" style="display:none" aria-hidden="true" tabindex="-1" />
+                            <input class="form-control" type="password" @bind="newAdmin.AdministrationClientKey" autocomplete="new-password"
+                                   placeholder="Maatwerksleutel uit SnelStart" />
+                            <div class="form-text">
+                                De maatwerksleutel die SnelStart voor deze administratie heeft afgegeven voor API-toegang
+                                (niet uw SnelStart-relatienummer).
+                            </div>
                         </div>
                                                 <div class="col-md-2 d-flex align-items-end">
                             <div class="form-check mb-2">
@@ -268,10 +275,12 @@ else
                                                    placeholder="SnelStart administratienaam" />
                                         </td>
                                         <td>
+                                            <input type="text" style="display:none" aria-hidden="true" tabindex="-1" />
+                                            <input type="password" style="display:none" aria-hidden="true" tabindex="-1" />
                                             <input class="form-control form-control-sm" type="password"
                                                    @bind="editAdminClientKey"
                                                    placeholder="@(admin.HasClientKey ? "Laat leeg om te behouden" : "Vul in")"
-                                                   autocomplete="off" />
+                                                   autocomplete="new-password" />
                                         </td>
                                         <td class="text-center">
                                             <input type="checkbox" @bind="editAdmin!.IsActive" />
