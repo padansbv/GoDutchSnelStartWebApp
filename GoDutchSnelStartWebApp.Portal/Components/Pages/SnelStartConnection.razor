@@ -188,157 +188,14 @@ else
         </div>
     }
 
-    @* SECTIE 2 (administraties) en SECTIE 3 (bankaccount-koppelingen) horen bij de GoDutch-flow.
-       MyPos gebruikt alleen de maatwerksleutel hierboven + een dagboek op /mypos/snelstart-verbinding. *@
+    @* SECTIE 3 (bankaccount-koppelingen) hoort bij de GoDutch-flow. MyPos gebruikt alleen de
+       maatwerksleutel hierboven + een dagboek op /mypos/snelstart-verbinding.
+       (SECTIE 2 — handmatig administraties aanmaken/bewerken met een eigen maatwerksleutel —
+       is verwijderd: die sleutel werd nooit gebruikt voor authenticatie. Administraties worden
+       automatisch aangemaakt/bijgewerkt vanuit de bankrekening-detailpagina; de lijst hieronder
+       dient alleen nog om een bestaande administratie aan een bankrekening te koppelen.) *@
     @if (!IsMyPos)
     {
-    @* ─── SECTIE 2: Administraties ─── *@
-    <div class="card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <strong>SnelStart administraties</strong>
-            <button class="btn btn-sm btn-outline-success" @onclick="ToggleNewAdmin">
-                @(showNewAdmin ? "Annuleren" : "+ Nieuwe administratie")
-            </button>
-        </div>
-        <div class="card-body">
-
-            @if (!string.IsNullOrWhiteSpace(adminSuccess))
-            {
-                <div class="alert alert-success py-2">@adminSuccess</div>
-            }
-            @if (!string.IsNullOrWhiteSpace(adminError))
-            {
-                <div class="alert alert-danger py-2">@adminError</div>
-            }
-
-            @if (showNewAdmin)
-            {
-                <div class="border rounded p-3 mb-3 bg-light">
-                    <h6 class="mb-3">Nieuwe administratie</h6>
-                    <div class="row g-3">
-                        <div class="col-md-5">
-                            <label class="form-label">Maatwerksleutel</label>
-                            <input type="text" style="display:none" aria-hidden="true" tabindex="-1" />
-                            <input type="password" style="display:none" aria-hidden="true" tabindex="-1" />
-                            <input class="form-control" type="password" @bind="newAdmin.AdministrationClientKey" autocomplete="new-password"
-                                   placeholder="Maatwerksleutel uit SnelStart" />
-                            <div class="form-text">
-                                De maatwerksleutel die SnelStart voor deze administratie heeft afgegeven voor API-toegang
-                                (niet uw SnelStart-relatienummer).
-                            </div>
-                        </div>
-                                                <div class="col-md-2 d-flex align-items-end">
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" id="newAdminActive" @bind="newAdmin.IsActive" />
-                                <label class="form-check-label" for="newAdminActive">Actief</label>
-                            </div>
-                        </div>
-                        <div class="col-12">
-                            <button class="btn btn-success btn-sm" @onclick="CreateAdminAsync" disabled="@isSavingAdmin">
-                                @(isSavingAdmin ? "Aanmaken..." : "Aanmaken")
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            }
-
-            @if (administrations.Count == 0)
-            {
-                <div class="text-muted">Nog geen administraties aangemaakt.</div>
-            }
-            else
-            {
-                <div class="table-responsive">
-                    <table class="table table-sm align-middle mb-0">
-                        <thead>
-                            <tr>
-                                <th>Interne naam</th>
-                                <th>SnelStart administratienaam</th>
-                                <th class="text-center">Maatwerksleutel</th>
-                                <th class="text-center">Actief</th>
-                                <th>Aangemaakt</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var admin in administrations)
-                            {
-                                <tr>
-                                    @if (editingAdminId == admin.Id)
-                                    {
-                                        <td>
-                                            <input class="form-control form-control-sm" @bind="editAdmin!.Name"
-                                                   placeholder="Interne naam" />
-                                        </td>
-                                        <td>
-                                            <input class="form-control form-control-sm" @bind="editAdmin!.NameSnelStartAdministration"
-                                                   placeholder="SnelStart administratienaam" />
-                                        </td>
-                                        <td>
-                                            <input type="text" style="display:none" aria-hidden="true" tabindex="-1" />
-                                            <input type="password" style="display:none" aria-hidden="true" tabindex="-1" />
-                                            <input class="form-control form-control-sm" type="password"
-                                                   @bind="editAdminClientKey"
-                                                   placeholder="@(admin.HasClientKey ? "Laat leeg om te behouden" : "Vul in")"
-                                                   autocomplete="new-password" />
-                                        </td>
-                                        <td class="text-center">
-                                            <input type="checkbox" @bind="editAdmin!.IsActive" />
-                                        </td>
-                                        <td>@admin.CreatedUtc.ToString("dd-MM-yyyy")</td>
-                                        <td class="text-end">
-                                            <button class="btn btn-sm btn-primary me-1" @onclick="() => SaveAdminAsync(admin.Id)" disabled="@isSavingAdmin">
-                                                @(isSavingAdmin ? "..." : "Opslaan")
-                                            </button>
-                                            <button class="btn btn-sm btn-outline-secondary" @onclick="CancelEditAdmin">
-                                                Annuleren
-                                            </button>
-                                        </td>
-                                    }
-                                    else
-                                    {
-                                        <td><strong>@admin.Name</strong></td>
-                                        <td>
-                                            @if (!string.IsNullOrWhiteSpace(admin.NameSnelStartAdministration))
-                                            {
-                                                @admin.NameSnelStartAdministration
-                                            }
-                                            else
-                                            {
-                                                <span class="text-muted fst-italic">Niet ingesteld</span>
-                                            }
-                                        </td>
-                                        <td class="text-center">
-                                            @if (admin.HasClientKey)
-                                            {
-                                                <span class="badge bg-success">Ingesteld</span>
-                                            }
-                                            else
-                                            {
-                                                <span class="badge bg-warning text-dark">Ontbreekt</span>
-                                            }
-                                        </td>
-                                        <td class="text-center">
-                                            <span class="badge @(admin.IsActive ? "bg-success" : "bg-secondary")">
-                                                @(admin.IsActive ? "Ja" : "Nee")
-                                            </span>
-                                        </td>
-                                        <td>@admin.CreatedUtc.ToString("dd-MM-yyyy")</td>
-                                        <td class="text-end">
-                                            <button class="btn btn-sm btn-outline-primary" @onclick="() => StartEditAdmin(admin)">
-                                                Bewerken
-                                            </button>
-                                        </td>
-                                    }
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            }
-        </div>
-    </div>
-
     @* ─── SECTIE 3: Bankaccounts & koppelingen ─── *@
     <div class="card">
         <div class="card-header">
@@ -563,20 +420,13 @@ else
     private bool _isTesting;
     private ConnectionTestResultViewModel? _testResult;
 
-    // Sectie 2
+    // Administraties (alleen nog gebruikt om een bestaande administratie aan een bankrekening
+    // te koppelen in Sectie 3 — aanmaken/bewerken gebeurt via de bankrekening-detailpagina)
     private List<SnelStartAdministrationViewModel> administrations = [];
-    private bool showNewAdmin;
     private bool _showMaatwerkHelp;
     private bool _showSs02;
     private bool _showSs03;
     private bool _showSs04;
-    private CreateSnelStartAdministrationRequestViewModel newAdmin = new();
-    private Guid? editingAdminId;
-    private UpdateSnelStartAdministrationRequestViewModel? editAdmin;
-    private string? editAdminClientKey;
-    private bool isSavingAdmin;
-    private string? adminSuccess;
-    private string? adminError;
 
     // Sectie 3
     private List<BankAccountRow> bankAccountRows = [];
@@ -592,7 +442,6 @@ else
     {
         isLoading = true;
         pageError = null;
-        adminSuccess = null;
         linkSuccess = null;
 
         try
@@ -712,107 +561,6 @@ else
             clientKeyError = $"Opslaan mislukt: {ex.Message}";
         }
         finally { isSavingClientKey = false; }
-    }
-
-    // ── Sectie 2 ──────────────────────────────────────────────────────────
-
-    private void ToggleNewAdmin()
-    {
-        showNewAdmin = !showNewAdmin;
-        if (showNewAdmin)
-        {
-            newAdmin = new CreateSnelStartAdministrationRequestViewModel { TenantId = TenantId };
-            adminSuccess = null;
-            adminError = null;
-        }
-    }
-
-    private async Task CreateAdminAsync()
-    {
-        adminError = null;
-        adminSuccess = null;
-
-        if (string.IsNullOrWhiteSpace(newAdmin.Name))
-        {
-            adminError = "Naam is verplicht.";
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(newAdmin.AdministrationClientKey))
-        {
-            adminError = "Maatwerksleutel is verplicht bij aanmaken.";
-            return;
-        }
-
-        isSavingAdmin = true;
-        try
-        {
-            newAdmin.TenantId = TenantId;
-            await BackendApiClient.CreateSnelStartAdministrationAsync(newAdmin);
-            adminSuccess = $"Administratie '{newAdmin.Name}' aangemaakt.";
-            showNewAdmin = false;
-            await LoadAsync();
-        }
-        catch (Exception ex)
-        {
-            adminError = $"Aanmaken mislukt: {ex.Message}";
-        }
-        finally { isSavingAdmin = false; }
-    }
-
-    private void StartEditAdmin(SnelStartAdministrationViewModel admin)
-    {
-        editingAdminId = admin.Id;
-        editAdmin = new UpdateSnelStartAdministrationRequestViewModel
-        {
-            Id                          = admin.Id,
-            TenantId                    = TenantId,
-            Name                        = admin.Name,
-            NameSnelStartAdministration = admin.NameSnelStartAdministration,
-            IsActive                    = admin.IsActive
-        };
-        editAdminClientKey = null;
-        adminSuccess = null;
-        adminError = null;
-    }
-
-    private void CancelEditAdmin()
-    {
-        editingAdminId = null;
-        editAdmin = null;
-        editAdminClientKey = null;
-    }
-
-    private async Task SaveAdminAsync(Guid adminId)
-    {
-        if (editAdmin is null) return;
-
-        adminError = null;
-        adminSuccess = null;
-
-        if (string.IsNullOrWhiteSpace(editAdmin.Name))
-        {
-            adminError = "Naam is verplicht.";
-            return;
-        }
-
-        editAdmin.AdministrationClientKey = string.IsNullOrWhiteSpace(editAdminClientKey)
-            ? null
-            : editAdminClientKey.Trim();
-
-        isSavingAdmin = true;
-        try
-        {
-            await BackendApiClient.UpdateSnelStartAdministrationAsync(adminId, editAdmin);
-            adminSuccess = "Administratie opgeslagen.";
-            CancelEditAdmin();
-            await LoadAsync();
-        }
-        catch (Exception ex)
-        {
-            adminError = $"Opslaan mislukt: {ex.Message}";
-        }
-        finally { isSavingAdmin = false; }
     }
 
     // ── Sectie 3 ──────────────────────────────────────────────────────────

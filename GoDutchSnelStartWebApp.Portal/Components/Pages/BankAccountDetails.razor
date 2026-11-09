@@ -245,29 +245,14 @@
                         <div class="row g-3">
 
                             <div class="col-md-6">
-                                <label class="form-label">Subscription key</label>
-                                <InputText class="form-control"
-                                           type="password"
-                                           @bind-Value="settings.SnelStartSubscriptionKey" />
-
-                                @if (settings.HasSnelStartSubscriptionKey)
-                                {
-                                    <div class="form-text text-success">
-                                        Subscription key is opgeslagen. Laat leeg om ongewijzigd te laten.
-                                    </div>
-                                }
-                                else
-                                {
-                                    <div class="form-text text-warning">
-                                        Nog geen subscription key opgeslagen.
-                                    </div>
-                                }
-                            </div>
-
-                            <div class="col-md-6">
-                                <label class="form-label">Client key (subscription key)</label>
+                                <label class="form-label">Maatwerksleutel (Client Key)</label>
                                 <InputText class="form-control"
                                            @bind-Value="settings.SnelStartClientKey" />
+                                <div class="form-text">
+                                    De maatwerksleutel die SnelStart voor deze administratie heeft afgegeven voor
+                                    API-toegang (niet uw SnelStart-relatienummer). De subscription key hoeft u niet
+                                    in te vullen — die is app-breed ingesteld.
+                                </div>
                             </div>
 
                             <div class="col-12">
@@ -896,9 +881,6 @@
                SyncEnabled = true
            };
 
-            // Secrets worden nooit opnieuw zichtbaar gemaakt in de UI.
-            settings.SnelStartSubscriptionKey = null;
-
             if (string.IsNullOrWhiteSpace(settings.SnelStartAuthUrl))
             {
                 settings.SnelStartAuthUrl = "https://auth.snelstart.nl/b2b/token";
@@ -1495,7 +1477,6 @@
     private bool HasSavedSnelStartCredentials()
     {
         return settings is not null &&
-               settings.HasSnelStartSubscriptionKey &&
                !string.IsNullOrWhiteSpace(settings.SnelStartClientKey) &&
                !string.IsNullOrWhiteSpace(settings.SnelStartAuthUrl) &&
                !string.IsNullOrWhiteSpace(settings.SnelStartApiBaseUrl);
@@ -1514,13 +1495,7 @@
 
         if (string.IsNullOrWhiteSpace(settings.SnelStartClientKey))
         {
-            return "Vul de SnelStart client key (subscription key) in voordat je de credentials opslaat.";
-        }
-
-        if (!settings.HasSnelStartSubscriptionKey &&
-            string.IsNullOrWhiteSpace(settings.SnelStartSubscriptionKey))
-        {
-            return "Vul de SnelStart subscription key in voordat je de credentials opslaat. Voor een nieuw bankaccount zijn subscription key en client key allebei verplicht.";
+            return "Vul de SnelStart maatwerksleutel (client key) in voordat je de credentials opslaat.";
         }
 
         return null;
@@ -1743,7 +1718,6 @@
                 ? "https://b2bapi.snelstart.nl/v2"
                 : settings.SnelStartApiBaseUrl.Trim();
             settings.SnelStartClientKey = settings.SnelStartClientKey?.Trim();
-            settings.SnelStartSubscriptionKey = settings.SnelStartSubscriptionKey?.Trim();
             settings.ExportFormat = NormalizeExportFormat(settings.ExportFormat);
             settings.SyncEnabled = true;
 
@@ -1754,7 +1728,6 @@
 
             await EnsureInternalSnelStartAdministrationAndLinkAsync(requireFreshClientKey: true);
 
-            settings.SnelStartSubscriptionKey = null;
             successMessage = "SnelStart credentials zijn opgeslagen. De interne SnelStart-koppeling is automatisch aangemaakt of bijgewerkt. Je kunt nu de verbinding testen en daarna dagboeken/grootboeken ophalen.";
 
             await LoadAsync();
