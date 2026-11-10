@@ -8,5 +8,6 @@ public interface IBankAccountResyncService
         Guid tenantId,
         Guid bankAccountId,
         DateTime fromUtc,
+        DateTime? toUtc = null,
         CancellationToken cancellationToken = default);
 }

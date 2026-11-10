@@ -73,18 +73,21 @@ public sealed class BackendApiClient : IBackendApiClient
         Guid tenantId,
         Guid bankAccountId,
         DateTime fromUtc,
+        DateTime? toUtc = null,
         CancellationToken cancellationToken = default)
     {
         var url = $"api/tenants/{tenantId}/bankaccounts/{bankAccountId}/resync";
 
         _logger.LogInformation(
-            "Force resync via {Url} vanaf {FromUtc}",
+            "Force resync via {Url} vanaf {FromUtc} tot {ToUtc}",
             url,
-            fromUtc);
+            fromUtc,
+            toUtc);
 
         var request = new ForceResyncRequestViewModel
         {
-            FromUtc = fromUtc
+            FromUtc = fromUtc,
+            ToUtc = toUtc
         };
 
         var result = await ExecuteWithRetryAsync(

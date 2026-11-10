@@ -23,6 +23,7 @@ public interface IBackendApiClient
         Guid tenantId,
         Guid bankAccountId,
         DateTime fromUtc,
+        DateTime? toUtc = null,
         CancellationToken cancellationToken = default);
 
     Task UpdateBankAccountSnelStartSettingsAsync(

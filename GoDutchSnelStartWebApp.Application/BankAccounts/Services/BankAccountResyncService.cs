@@ -35,6 +35,7 @@ public sealed class BankAccountResyncService : IBankAccountResyncService
         Guid tenantId,
         Guid bankAccountId,
         DateTime fromUtc,
+        DateTime? toUtc = null,
         CancellationToken cancellationToken = default)
     {
         var bankAccount = await _bankAccountRepository.GetByIdAsync(
@@ -53,10 +54,16 @@ public sealed class BankAccountResyncService : IBankAccountResyncService
 
         var nowUtc = DateTime.UtcNow;
         var normalizedFromUtc = EnsureUtc(fromUtc);
+        var normalizedToUtc = toUtc.HasValue ? EnsureUtc(toUtc.Value) : nowUtc;
 
-        if (normalizedFromUtc >= nowUtc)
+        if (normalizedToUtc > nowUtc)
         {
-            normalizedFromUtc = nowUtc.AddMinutes(-5);
+            normalizedToUtc = nowUtc;
+        }
+
+        if (normalizedFromUtc >= normalizedToUtc)
+        {
+            normalizedFromUtc = normalizedToUtc.AddMinutes(-5);
         }
 
         var importRun = GoDutchImportRun.Start(
@@ -64,7 +71,7 @@ public sealed class BankAccountResyncService : IBankAccountResyncService
             bankAccountId,
             bankAccount.Iban,
             normalizedFromUtc,
-            nowUtc,
+            normalizedToUtc,
             ImportRunTriggerSource.ManualResync);
 
         await _importRunRepository.CreateAsync(importRun, cancellationToken);
@@ -74,7 +81,7 @@ public sealed class BankAccountResyncService : IBankAccountResyncService
             BankAccountId = bankAccountId,
             Iban = bankAccount.Iban,
             PeriodFromUtc = normalizedFromUtc,
-            PeriodToUtc = nowUtc,
+            PeriodToUtc = normalizedToUtc,
             ImportRunId = importRun.Id,
             Status = nameof(ImportRunStatus.Started),
             Message = "Handmatige resync gestart."
@@ -89,10 +96,10 @@ public sealed class BankAccountResyncService : IBankAccountResyncService
                 bankAccountId,
                 bankAccount.Iban,
                 normalizedFromUtc,
-                nowUtc,
+                normalizedToUtc,
                 cancellationToken);
 
-            FillGoDutchSummary(result, transactions, nowUtc);
+            FillGoDutchSummary(result, transactions, normalizedToUtc);
             result.DownloadSucceeded = true;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -153,7 +160,7 @@ public sealed class BankAccountResyncService : IBankAccountResyncService
                 bankAccountId,
                 bankAccount.Iban,
                 normalizedFromUtc,
-                nowUtc,
+                normalizedToUtc,
                 cancellationToken);
 
             result.ExportTransactionCount = importResult.TransactionCount;

@@ -77,10 +77,16 @@ public sealed class BankAccountsController(
             return BadRequest("Request body is verplicht.");
         }
 
+        if (request.ToUtc.HasValue && request.ToUtc.Value <= request.FromUtc)
+        {
+            return BadRequest("ToUtc moet later zijn dan FromUtc.");
+        }
+
         var result = await resyncService.ForceResyncFromDateAsync(
             tenantId,
             bankAccountId,
             request.FromUtc,
+            request.ToUtc,
             cancellationToken);
 
         return Ok(result);

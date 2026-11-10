@@ -59,6 +59,11 @@ else
                             disabled="@(row.Link is null)">
                         @(row.ShowSettings ? "Verbergen" : "Instellingen")
                     </button>
+                    <button class="btn btn-sm btn-outline-secondary"
+                            @onclick="() => TogglePeriodPicker(row)"
+                            disabled="@(!row.BankAccount.IsActive)">
+                        @(row.ShowPeriodPicker ? "Verbergen" : "Periode ophalen")
+                    </button>
                     <button class="btn btn-sm btn-primary"
                             @onclick="() => SyncNowAsync(row)"
                             disabled="@(row.IsSyncing || !row.BankAccount.IsActive)">
@@ -131,6 +136,36 @@ else
                 {
                     <div class="alert @(row.ActionSuccess ? "alert-success" : "alert-danger") mt-3 mb-0 py-2">
                         @row.ActionMessage
+                    </div>
+                }
+
+                @if (row.ShowPeriodPicker)
+                {
+                    <hr />
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-4">
+                            <label class="form-label">Vanaf</label>
+                            <input type="date" class="form-control"
+                                   value="@row.PeriodFrom.ToString("yyyy-MM-dd")"
+                                   @onchange="e => row.PeriodFrom = DateTime.TryParse(e.Value?.ToString(), out var d) ? d : row.PeriodFrom" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Tot en met</label>
+                            <input type="date" class="form-control"
+                                   value="@row.PeriodTo.ToString("yyyy-MM-dd")"
+                                   @onchange="e => row.PeriodTo = DateTime.TryParse(e.Value?.ToString(), out var d) ? d : row.PeriodTo" />
+                        </div>
+                        <div class="col-md-4">
+                            <button class="btn btn-success w-100"
+                                    @onclick="() => FetchPeriodAsync(row)"
+                                    disabled="@(row.IsSyncing || row.PeriodTo < row.PeriodFrom)">
+                                @(row.IsSyncing ? "Bezig..." : "Transacties ophalen voor periode")
+                            </button>
+                        </div>
+                        <div class="col-12 form-text">
+                            Haalt GoDutch-transacties op tussen deze twee datums (tot en met het einde van de laatste dag)
+                            en exporteert ze naar SnelStart, ongeacht de laatste synchronisatiestatus.
+                        </div>
                     </div>
                 }
 
@@ -276,6 +311,47 @@ else
         }
     }
 
+    private void TogglePeriodPicker(SyncRow row)
+    {
+        row.ShowPeriodPicker = !row.ShowPeriodPicker;
+        row.ActionMessage = null;
+    }
+
+    private async Task FetchPeriodAsync(SyncRow row)
+    {
+        if (row.PeriodTo < row.PeriodFrom) return;
+
+        row.IsSyncing = true;
+        row.ActionMessage = null;
+
+        try
+        {
+            var tenantId = Session.TenantId ?? TenantOptions.Value.TenantId;
+            var fromUtc = DateTime.SpecifyKind(row.PeriodFrom.Date, DateTimeKind.Utc);
+            var toUtc = DateTime.SpecifyKind(row.PeriodTo.Date.AddDays(1).AddSeconds(-1), DateTimeKind.Utc);
+
+            var result = await BackendApiClient.ForceResyncAsync(tenantId, row.BankAccount.Id, fromUtc, toUtc);
+
+            row.ActionSuccess = result.DownloadSucceeded;
+            row.ActionMessage = result.DownloadSucceeded
+                ? $"Periode opgehaald: {result.GoDutchTransactionCount} transacties verwerkt ({row.PeriodFrom:dd-MM-yyyy} t/m {row.PeriodTo:dd-MM-yyyy})."
+                : $"Ophalen mislukt: {result.Message}";
+
+            var newStatus = await BackendApiClient.GetSyncStatusAsync(tenantId, row.BankAccount.Id);
+            row.SyncStatus = newStatus;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Handmatig ophalen voor periode mislukt voor bankrekening {BankAccountId}.", row.BankAccount.Id);
+            row.ActionSuccess = false;
+            row.ActionMessage = $"Ophalen mislukt: {ex.Message}";
+        }
+        finally
+        {
+            row.IsSyncing = false;
+        }
+    }
+
     private async Task SaveSettingsAsync(SyncRow row)
     {
         if (row.Link is null) return;
@@ -339,10 +415,14 @@ else
         public string? SnelStartAdminName { get; set; }
 
         public bool ShowSettings { get; set; }
+        public bool ShowPeriodPicker { get; set; }
         public bool IsSyncing { get; set; }
         public bool IsSaving { get; set; }
         public string? ActionMessage { get; set; }
         public bool ActionSuccess { get; set; }
+
+        public DateTime PeriodFrom { get; set; } = DateTime.Today.AddDays(-30);
+        public DateTime PeriodTo { get; set; } = DateTime.Today;
 
         public bool EditAutoSyncEnabled { get; set; } = true;
         public int EditIntervalMinutes { get; set; } = 15;

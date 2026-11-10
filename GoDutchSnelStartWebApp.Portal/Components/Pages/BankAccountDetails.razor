@@ -54,7 +54,22 @@
     }
     else
     {
+        <ul class="nav nav-tabs mb-4">
+            <li class="nav-item">
+                <button class="nav-link @(activeTab == "algemeen" ? "active" : "")" @onclick='() => activeTab = "algemeen"'>
+                    Algemeen
+                </button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link @(activeTab == "snelstart" ? "active" : "")" @onclick='() => activeTab = "snelstart"'>
+                    SnelStart
+                </button>
+            </li>
+        </ul>
+
         <div class="row g-4">
+            @if (activeTab == "algemeen")
+            {
             <div class="col-lg-6">
                 <div class="card shadow-sm h-100">
                     <div class="card-header">Bankaccount</div>
@@ -236,7 +251,10 @@
                     </div>
                 </div>
             </div>
+            }
 
+            @if (activeTab == "snelstart")
+            {
             <div class="col-12" id="snelstart">
                 <div class="card shadow-sm">
                     <div class="card-header">SnelStart credentials</div>
@@ -446,19 +464,14 @@
                                         <p class="cred-help-intro">Grootboek</p>
                                         <ol class="cred-help-steps">
                                             <li>
-                                                Het <strong>grootboek</strong> is de grootboekrekening waarop transacties
-                                                van dit dagboek standaard worden geboekt (bijvoorbeeld een tussenrekening
-                                                of liquide-middelenrekening). Dit is dezelfde grootboekrekening die u ook
-                                                normaal aan het bankdagboek koppelt in SnelStart.
-                                            </li>
-                                            <li>
-                                                Kies hem via <strong>Grootboek kiezen</strong>, op dezelfde manier als het
-                                                dagboek. Staat de juiste rekening er niet bij, maak hem dan eerst aan in
-                                                SnelStart en ververs de lijst opnieuw.
+                                                In SnelStart is de grootboekrekening van een bankdagboek altijd dezelfde
+                                                rekening als het dagboek zelf (bijvoorbeeld een tussenrekening of
+                                                liquide-middelenrekening). Het grootboek wordt daarom automatisch
+                                                overgenomen zodra u het dagboek kiest — hier hoeft u niets voor te doen.
                                             </li>
                                         </ol>
                                         <p class="cred-help-intro mb-0" style="font-weight:400;">
-                                            Beide lijsten komen rechtstreeks uit uw SnelStart-administratie via de
+                                            De dagboekenlijst komt rechtstreeks uit uw SnelStart-administratie via de
                                             SnelStart-koppeling van deze bankrekening — er kan dus niets fout getypt worden.
                                         </p>
                                     </div>
@@ -533,27 +546,11 @@
                                         <div class="border rounded p-3 h-100">
                                             <h6 class="mb-3">Grootboek</h6>
 
-                                            <label class="form-label">Grootboek kiezen</label>
-                                            <select class="form-select"
-                                                    value="@snelStartSettings.SnelStartGrootboekIdText"
-                                                    @onchange="OnGrootboekChangedAsync"
-                                                    disabled="@(!CanSelectSnelStartLookupValues())">
-                                                <option value="">-- Kies een grootboek --</option>
-
-                                                @foreach (var grootboek in grootboeken)
-                                                {
-                                                    <option value="@grootboek.Id.ToString()">
-                                                        @grootboek.DisplayName
-                                                    </option>
-                                                }
-                                            </select>
-
-                                            @if (isEditingSnelStartSettings && grootboeken.Count == 0)
-                                            {
-                                                <div class="form-text mb-3">
-                                                    Sla eerst de SnelStart credentials op. Daarna kun je grootboeken ophalen.
-                                                </div>
-                                            }
+                                            <div class="form-text mb-3">
+                                                In SnelStart heeft een bankdagboek altijd dezelfde onderliggende rekening
+                                                als grootboekrekening. Het grootboek wordt daarom automatisch overgenomen
+                                                zodra u hierboven een dagboek kiest.
+                                            </div>
 
                                             <div class="mt-3">
                                                 <label class="form-label">GrootboekId</label>
@@ -666,6 +663,10 @@
                 </div>
             </div>
 
+            }
+
+            @if (activeTab == "algemeen")
+            {
             <div class="col-12">
                 <div class="card shadow-sm border-info">
                     <div class="card-header">GoDutch credentials</div>
@@ -688,6 +689,14 @@
                                 <InputDate @bind-Value="resyncFromUtc"
                                            class="form-control"
                                            Type="InputDateType.DateTimeLocal" />
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label">Tot datum/tijd (optioneel, lokale tijd)</label>
+                                <InputDate @bind-Value="resyncToUtc"
+                                           class="form-control"
+                                           Type="InputDateType.DateTimeLocal" />
+                                <div class="form-text">Leeg laten = tot nu.</div>
                             </div>
 
                             <div class="col-auto">
@@ -803,11 +812,14 @@
                     </div>
                 </div>
             </div>
+            }
         </div>
     }
 </div>
 
 @code {
+    private string activeTab = "algemeen";
+
     [Parameter]
     public Guid BankAccountId { get; set; }
 
@@ -829,6 +841,7 @@
     private BankAccountSyncStatusViewModel? syncStatus;
     private BankAccountResyncResultViewModel? resyncResult;
     private DateTime? resyncFromUtc = DateTime.UtcNow.AddDays(-1);
+    private DateTime? resyncToUtc;
 
     private SnelStartSettingsEditModel snelStartSettings = new();
 
@@ -844,7 +857,6 @@
     private readonly int[] syncIntervalOptions = [15, 30, 60, 120, 240, 1440];
     private readonly List<SnelStartAdministrationViewModel> snelStartAdministrations = [];
     private readonly List<SnelStartDagboekLookupViewModel> dagboeken = [];
-    private readonly List<SnelStartGrootboekLookupViewModel> grootboeken = [];
 
     protected override async Task OnParametersSetAsync()
     {
@@ -1054,20 +1066,14 @@
             infoMessage = null;
 
             dagboeken.Clear();
-            grootboeken.Clear();
 
             var dagboekResult = await BackendApiClient.GetSnelStartDagboekenAsync(
                 TenantId,
                 BankAccountId);
 
-            var grootboekResult = await BackendApiClient.GetSnelStartGrootboekenAsync(
-                TenantId,
-                BankAccountId);
-
             dagboeken.AddRange(dagboekResult);
-            grootboeken.AddRange(grootboekResult);
 
-            successMessage = $"SnelStart lijsten opgehaald: {dagboeken.Count} dagboeken en {grootboeken.Count} grootboeken.";
+            successMessage = $"SnelStart dagboeken opgehaald: {dagboeken.Count} stuks. Het grootboek wordt automatisch overgenomen zodra u een dagboek kiest.";
         }
         catch (Exception ex)
         {
@@ -1088,6 +1094,9 @@
         {
             snelStartSettings.SnelStartDagboekCode = null;
             snelStartSettings.SnelStartDagboekNaam = null;
+            snelStartSettings.SnelStartGrootboekIdText = null;
+            snelStartSettings.SnelStartGrootboekNummer = null;
+            snelStartSettings.SnelStartGrootboekNaam = null;
             return Task.CompletedTask;
         }
 
@@ -1098,29 +1107,12 @@
         {
             snelStartSettings.SnelStartDagboekCode = selectedDagboek.Nummer;
             snelStartSettings.SnelStartDagboekNaam = selectedDagboek.Omschrijving;
-        }
 
-        return Task.CompletedTask;
-    }
-
-    private Task OnGrootboekSelectedAsync(string? selectedId)
-    {
-        snelStartSettings.SnelStartGrootboekIdText = selectedId;
-
-        if (string.IsNullOrWhiteSpace(selectedId))
-        {
-            snelStartSettings.SnelStartGrootboekNummer = null;
-            snelStartSettings.SnelStartGrootboekNaam = null;
-            return Task.CompletedTask;
-        }
-
-        var selectedGrootboek = grootboeken.FirstOrDefault(x =>
-            string.Equals(x.Id.ToString(), selectedId, StringComparison.OrdinalIgnoreCase));
-
-        if (selectedGrootboek is not null)
-        {
-            snelStartSettings.SnelStartGrootboekNummer = selectedGrootboek.Nummer;
-            snelStartSettings.SnelStartGrootboekNaam = selectedGrootboek.Omschrijving;
+            // In SnelStart is de grootboekrekening van een bankdagboek altijd dezelfde rekening
+            // als het dagboek zelf (zelfde id/nummer/naam) — zie [[snelstart-b2b-api-notes]].
+            snelStartSettings.SnelStartGrootboekIdText = selectedDagboek.Id.ToString();
+            snelStartSettings.SnelStartGrootboekNummer = selectedDagboek.Nummer;
+            snelStartSettings.SnelStartGrootboekNaam = selectedDagboek.Omschrijving;
         }
 
         return Task.CompletedTask;
@@ -1135,11 +1127,6 @@
     private Task OnDagboekChangedAsync(ChangeEventArgs e)
     {
         return OnDagboekSelectedAsync(e.Value?.ToString());
-    }
-
-    private Task OnGrootboekChangedAsync(ChangeEventArgs e)
-    {
-        return OnGrootboekSelectedAsync(e.Value?.ToString());
     }
 
     private void BeginEditSnelStartSettings()
@@ -1172,7 +1159,6 @@
         }
 
         dagboeken.Clear();
-        grootboeken.Clear();
 
         isEditingSnelStartSettings = false;
         isLoadingSnelStartLookups = false;
@@ -1236,7 +1222,6 @@
 
             isEditingSnelStartSettings = false;
             dagboeken.Clear();
-            grootboeken.Clear();
 
             successMessage = "SnelStart instellingen zijn opgeslagen. De interne SnelStart-koppeling is automatisch aangemaakt of bijgewerkt.";
 
@@ -1436,11 +1421,15 @@
             }
 
             var fromUtc = DateTime.SpecifyKind(resyncFromUtc.Value, DateTimeKind.Local).ToUniversalTime();
+            var toUtc = resyncToUtc.HasValue
+                ? DateTime.SpecifyKind(resyncToUtc.Value, DateTimeKind.Local).ToUniversalTime()
+                : (DateTime?)null;
 
             resyncResult = await BackendApiClient.ForceResyncAsync(
                 TenantId,
                 BankAccountId,
-                fromUtc);
+                fromUtc,
+                toUtc);
 
             await LoadAsync();
 
