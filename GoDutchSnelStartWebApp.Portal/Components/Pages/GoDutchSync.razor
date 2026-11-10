@@ -11,6 +11,33 @@
 
 <PageTitle>GoDutch synchronisatie</PageTitle>
 
+<style>
+    /* Laat van het native datumveld alleen het kalender-icoon zien; de datum zelf
+       wordt getoond in het ernaast staande tekstveld (altijd dd-mm-jjjj, ongeacht
+       de OS-/browserlocale van de native date-picker). */
+    .date-picker-trigger {
+        background: #fff;
+        border-left: 0;
+    }
+
+    .date-picker-trigger input[type="date"] {
+        width: 2.25rem;
+        padding: 0;
+        color: transparent;
+        background: transparent;
+    }
+
+    .date-picker-trigger input[type="date"]::-webkit-datetime-edit,
+    .date-picker-trigger input[type="date"]::-webkit-inner-spin-button {
+        display: none;
+    }
+
+    .date-picker-trigger input[type="date"]::-webkit-calendar-picker-indicator {
+        opacity: 1;
+        cursor: pointer;
+    }
+</style>
+
 <div class="d-flex align-items-center justify-content-between mb-2">
     <h1 class="mb-0">GoDutch synchronisatie</h1>
     <button class="btn btn-outline-secondary btn-sm" @onclick="LoadAsync" disabled="@isLoading">
@@ -153,9 +180,16 @@ else
                     <div class="row g-3 align-items-end">
                         <div class="col-md-4">
                             <label class="form-label">Vanaf</label>
-                            <input type="text" class="form-control" placeholder="dd-mm-jjjj"
-                                   value="@row.PeriodFrom.ToString("dd-MM-yyyy")"
-                                   @onchange="e => OnPeriodFromTextChanged(row, e)" />
+                            <div class="input-group">
+                                <input type="text" class="form-control" placeholder="dd-mm-jjjj"
+                                       value="@row.PeriodFrom.ToString("dd-MM-yyyy")"
+                                       @onchange="e => OnPeriodFromTextChanged(row, e)" />
+                                <span class="input-group-text date-picker-trigger p-0">
+                                    <input type="date" class="form-control border-0"
+                                           value="@row.PeriodFrom.ToString("yyyy-MM-dd")"
+                                           @onchange="e => OnPeriodFromTextChanged(row, e, isoFormat: true)" />
+                                </span>
+                            </div>
                             @if (row.PeriodFromError is not null)
                             {
                                 <div class="form-text text-danger">@row.PeriodFromError</div>
@@ -163,9 +197,16 @@ else
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Tot en met</label>
-                            <input type="text" class="form-control" placeholder="dd-mm-jjjj"
-                                   value="@row.PeriodTo.ToString("dd-MM-yyyy")"
-                                   @onchange="e => OnPeriodToTextChanged(row, e)" />
+                            <div class="input-group">
+                                <input type="text" class="form-control" placeholder="dd-mm-jjjj"
+                                       value="@row.PeriodTo.ToString("dd-MM-yyyy")"
+                                       @onchange="e => OnPeriodToTextChanged(row, e)" />
+                                <span class="input-group-text date-picker-trigger p-0">
+                                    <input type="date" class="form-control border-0"
+                                           value="@row.PeriodTo.ToString("yyyy-MM-dd")"
+                                           @onchange="e => OnPeriodToTextChanged(row, e, isoFormat: true)" />
+                                </span>
+                            </div>
                             @if (row.PeriodToError is not null)
                             {
                                 <div class="form-text text-danger">@row.PeriodToError</div>
@@ -376,11 +417,11 @@ else
         row.ActionMessage = null;
     }
 
-    private static void OnPeriodFromTextChanged(SyncRow row, ChangeEventArgs e)
+    private static void OnPeriodFromTextChanged(SyncRow row, ChangeEventArgs e, bool isoFormat = false)
     {
         if (DateTime.TryParseExact(
                 e.Value?.ToString(),
-                "dd-MM-yyyy",
+                isoFormat ? "yyyy-MM-dd" : "dd-MM-yyyy",
                 System.Globalization.CultureInfo.InvariantCulture,
                 System.Globalization.DateTimeStyles.None,
                 out var parsed))
@@ -388,17 +429,17 @@ else
             row.PeriodFrom = parsed;
             row.PeriodFromError = null;
         }
-        else
+        else if (!isoFormat)
         {
             row.PeriodFromError = "Ongeldige datum. Gebruik het formaat dd-mm-jjjj.";
         }
     }
 
-    private static void OnPeriodToTextChanged(SyncRow row, ChangeEventArgs e)
+    private static void OnPeriodToTextChanged(SyncRow row, ChangeEventArgs e, bool isoFormat = false)
     {
         if (DateTime.TryParseExact(
                 e.Value?.ToString(),
-                "dd-MM-yyyy",
+                isoFormat ? "yyyy-MM-dd" : "dd-MM-yyyy",
                 System.Globalization.CultureInfo.InvariantCulture,
                 System.Globalization.DateTimeStyles.None,
                 out var parsed))
@@ -406,7 +447,7 @@ else
             row.PeriodTo = parsed;
             row.PeriodToError = null;
         }
-        else
+        else if (!isoFormat)
         {
             row.PeriodToError = "Ongeldige datum. Gebruik het formaat dd-mm-jjjj.";
         }
