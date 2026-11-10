@@ -21,6 +21,13 @@
 <p class="text-muted">
     Bekijk de synchronisatiestatus per bankrekening, pas instellingen aan en start handmatig een sync.
 </p>
+<p class="text-muted small">
+    <strong>Nu synchroniseren</strong> haalt alleen transacties op sinds de laatste synchronisatie (of de
+    laatste 30 dagen als er nog nooit gesynchroniseerd is) en exporteert ze direct naar SnelStart — bedoeld
+    voor de normale, regelmatige bijwerking. <strong>Periode ophalen</strong> is voor een zelfgekozen periode
+    (bijv. een backfill of correctie): u ziet eerst een voorbeeld van de gevonden transacties, en exporteert
+    die pas na controle naar SnelStart.
+</p>
 
 @if (!string.IsNullOrWhiteSpace(pageError))
 {
@@ -57,16 +64,17 @@ else
                     <button class="btn btn-sm btn-outline-primary"
                             @onclick="() => ToggleSettings(row)"
                             disabled="@(row.Link is null)">
-                        @(row.ShowSettings ? "Verbergen" : "Instellingen")
+                        @(row.ShowSettings ? "Instellingen verbergen" : "Instellingen")
                     </button>
                     <button class="btn btn-sm btn-outline-secondary"
                             @onclick="() => TogglePeriodPicker(row)"
                             disabled="@(!row.BankAccount.IsActive)">
-                        @(row.ShowPeriodPicker ? "Verbergen" : "Periode ophalen")
+                        @(row.ShowPeriodPicker ? "Periode verbergen" : "Periode ophalen")
                     </button>
                     <button class="btn btn-sm btn-primary"
                             @onclick="() => SyncNowAsync(row)"
-                            disabled="@(row.IsSyncing || !row.BankAccount.IsActive)">
+                            disabled="@(row.IsSyncing || !row.BankAccount.IsActive)"
+                            title="Haalt alleen transacties op sinds de laatste synchronisatie (of de laatste 30 dagen als er nog nooit gesynchroniseerd is) en exporteert ze meteen naar SnelStart.">
                         @(row.IsSyncing ? "Bezig..." : "Nu synchroniseren")
                     </button>
                 </div>
@@ -148,24 +156,67 @@ else
                             <input type="date" class="form-control"
                                    value="@row.PeriodFrom.ToString("yyyy-MM-dd")"
                                    @onchange="e => row.PeriodFrom = DateTime.TryParse(e.Value?.ToString(), out var d) ? d : row.PeriodFrom" />
+                            <div class="form-text">@FormatNl(row.PeriodFrom)</div>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Tot en met</label>
                             <input type="date" class="form-control"
                                    value="@row.PeriodTo.ToString("yyyy-MM-dd")"
                                    @onchange="e => row.PeriodTo = DateTime.TryParse(e.Value?.ToString(), out var d) ? d : row.PeriodTo" />
+                            <div class="form-text">@FormatNl(row.PeriodTo)</div>
                         </div>
                         <div class="col-md-4">
-                            <button class="btn btn-success w-100"
-                                    @onclick="() => FetchPeriodAsync(row)"
+                            <button class="btn btn-outline-success w-100"
+                                    @onclick="() => PreviewPeriodAsync(row)"
                                     disabled="@(row.IsSyncing || row.PeriodTo < row.PeriodFrom)">
-                                @(row.IsSyncing ? "Bezig..." : "Transacties ophalen voor periode")
+                                @(row.IsSyncing ? "Bezig..." : "Transacties ophalen (voorbeeld)")
                             </button>
                         </div>
                         <div class="col-12 form-text">
                             Haalt GoDutch-transacties op tussen deze twee datums (tot en met het einde van de laatste dag)
-                            en exporteert ze naar SnelStart, ongeacht de laatste synchronisatiestatus.
+                            ter controle, zonder ze al naar SnelStart te exporteren.
                         </div>
+
+                        @if (row.PreviewTransactions is not null)
+                        {
+                            <div class="col-12">
+                                @if (row.PreviewTransactions.Count == 0)
+                                {
+                                    <div class="alert alert-secondary py-2 mb-0">Geen transacties gevonden in deze periode.</div>
+                                }
+                                else
+                                {
+                                    <div class="table-responsive">
+                                        <table class="table table-sm align-middle mb-2">
+                                            <thead>
+                                                <tr>
+                                                    <th>Datum</th>
+                                                    <th>Omschrijving</th>
+                                                    <th class="text-end">Bedrag</th>
+                                                    <th class="text-end">Saldo na</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var tx in row.PreviewTransactions)
+                                                {
+                                                    <tr>
+                                                        <td>@(tx.BookingDate?.ToString("dd-MM-yyyy") ?? "-")</td>
+                                                        <td>@tx.Description</td>
+                                                        <td class="text-end">@tx.Amount.ToString("N2")</td>
+                                                        <td class="text-end">@(tx.BalanceAfter?.ToString("N2") ?? "-")</td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <button class="btn btn-success"
+                                            @onclick="() => ExportPeriodAsync(row)"
+                                            disabled="@row.IsSyncing">
+                                        @(row.IsSyncing ? "Bezig..." : $"{row.PreviewTransactions.Count} transacties exporteren naar SnelStart")
+                                    </button>
+                                }
+                            </div>
+                        }
                     </div>
                 }
 
@@ -292,9 +343,11 @@ else
             var result = await BackendApiClient.ForceResyncAsync(tenantId, row.BankAccount.Id, fromUtc);
 
             row.ActionSuccess = result.DownloadSucceeded;
-            row.ActionMessage = result.DownloadSucceeded
-                ? $"Sync geslaagd: {result.GoDutchTransactionCount} transacties verwerkt."
-                : $"Sync mislukt: {result.Message}";
+            row.ActionMessage = !result.DownloadSucceeded
+                ? $"Sync mislukt: {result.Message}"
+                : result.GoDutchTransactionCount == 0
+                    ? $"Sync uitgevoerd: geen nieuwe transacties sinds {(row.SyncStatus?.LastRunAt?.ToLocalTime().ToString("dd-MM-yyyy HH:mm") ?? "30 dagen geleden")}. Gebruik \"Periode ophalen\" om een andere periode te controleren."
+                    : $"Sync geslaagd: {result.GoDutchTransactionCount} transacties verwerkt.";
 
             var newStatus = await BackendApiClient.GetSyncStatusAsync(tenantId, row.BankAccount.Id);
             row.SyncStatus = newStatus;
@@ -317,34 +370,72 @@ else
         row.ActionMessage = null;
     }
 
-    private async Task FetchPeriodAsync(SyncRow row)
+    private static string FormatNl(DateTime d) =>
+        d.ToString("dd MMMM yyyy", System.Globalization.CultureInfo.GetCultureInfo("nl-NL"));
+
+    private (DateTime fromUtc, DateTime toUtc) GetPeriodUtc(SyncRow row) => (
+        DateTime.SpecifyKind(row.PeriodFrom.Date, DateTimeKind.Utc),
+        DateTime.SpecifyKind(row.PeriodTo.Date.AddDays(1).AddSeconds(-1), DateTimeKind.Utc));
+
+    private async Task PreviewPeriodAsync(SyncRow row)
     {
         if (row.PeriodTo < row.PeriodFrom) return;
 
+        row.IsSyncing = true;
+        row.ActionMessage = null;
+        row.PreviewTransactions = null;
+
+        try
+        {
+            var tenantId = Session.TenantId ?? TenantOptions.Value.TenantId;
+            var (fromUtc, toUtc) = GetPeriodUtc(row);
+
+            var transactions = await BackendApiClient.PreviewGoDutchTransactionsAsync(
+                tenantId, row.BankAccount.Id, fromUtc, toUtc);
+
+            row.PreviewTransactions = transactions.ToList();
+            row.ActionSuccess = true;
+            row.ActionMessage = $"{transactions.Count} transacties gevonden ({row.PeriodFrom:dd-MM-yyyy} t/m {row.PeriodTo:dd-MM-yyyy}). Nog niet geëxporteerd naar SnelStart.";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Preview van GoDutch-transacties mislukt voor bankrekening {BankAccountId}.", row.BankAccount.Id);
+            row.ActionSuccess = false;
+            row.ActionMessage = $"Ophalen mislukt: {ex.Message}";
+        }
+        finally
+        {
+            row.IsSyncing = false;
+        }
+    }
+
+    private async Task ExportPeriodAsync(SyncRow row)
+    {
         row.IsSyncing = true;
         row.ActionMessage = null;
 
         try
         {
             var tenantId = Session.TenantId ?? TenantOptions.Value.TenantId;
-            var fromUtc = DateTime.SpecifyKind(row.PeriodFrom.Date, DateTimeKind.Utc);
-            var toUtc = DateTime.SpecifyKind(row.PeriodTo.Date.AddDays(1).AddSeconds(-1), DateTimeKind.Utc);
+            var (fromUtc, toUtc) = GetPeriodUtc(row);
 
             var result = await BackendApiClient.ForceResyncAsync(tenantId, row.BankAccount.Id, fromUtc, toUtc);
 
             row.ActionSuccess = result.DownloadSucceeded;
             row.ActionMessage = result.DownloadSucceeded
-                ? $"Periode opgehaald: {result.GoDutchTransactionCount} transacties verwerkt ({row.PeriodFrom:dd-MM-yyyy} t/m {row.PeriodTo:dd-MM-yyyy})."
-                : $"Ophalen mislukt: {result.Message}";
+                ? $"Geëxporteerd naar SnelStart: {result.GoDutchTransactionCount} transacties verwerkt ({row.PeriodFrom:dd-MM-yyyy} t/m {row.PeriodTo:dd-MM-yyyy})."
+                : $"Exporteren mislukt: {result.Message}";
+
+            row.PreviewTransactions = null;
 
             var newStatus = await BackendApiClient.GetSyncStatusAsync(tenantId, row.BankAccount.Id);
             row.SyncStatus = newStatus;
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Handmatig ophalen voor periode mislukt voor bankrekening {BankAccountId}.", row.BankAccount.Id);
+            Logger.LogError(ex, "Exporteren naar SnelStart mislukt voor bankrekening {BankAccountId}.", row.BankAccount.Id);
             row.ActionSuccess = false;
-            row.ActionMessage = $"Ophalen mislukt: {ex.Message}";
+            row.ActionMessage = $"Exporteren mislukt: {ex.Message}";
         }
         finally
         {
@@ -423,6 +514,7 @@ else
 
         public DateTime PeriodFrom { get; set; } = DateTime.Today.AddDays(-30);
         public DateTime PeriodTo { get; set; } = DateTime.Today;
+        public List<BankTransactionViewModel>? PreviewTransactions { get; set; }
 
         public bool EditAutoSyncEnabled { get; set; } = true;
         public int EditIntervalMinutes { get; set; } = 15;

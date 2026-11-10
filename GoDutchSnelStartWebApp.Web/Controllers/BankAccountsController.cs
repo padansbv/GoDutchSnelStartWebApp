@@ -1,5 +1,6 @@
 ﻿using GoDutchSnelStartWebApp.Application.BankAccounts.Dtos;
 using GoDutchSnelStartWebApp.Application.BankAccounts.Interfaces;
+using GoDutchSnelStartWebApp.Application.GoDutchTransactions.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GoDutchSnelStartWebApp.Web.Controllers;
@@ -8,7 +9,8 @@ namespace GoDutchSnelStartWebApp.Web.Controllers;
 [Route("api/tenants/{tenantId:guid}/bankaccounts")]
 public sealed class BankAccountsController(
     IBankAccountService bankAccountService,
-    IBankAccountResyncService resyncService) : ControllerBase
+    IBankAccountResyncService resyncService,
+    IGoDutchTransactionService goDutchTransactionService) : ControllerBase
 {
     [HttpGet("{bankAccountId:guid}")]
     public async Task<IActionResult> GetById(
@@ -90,5 +92,43 @@ public sealed class BankAccountsController(
             cancellationToken);
 
         return Ok(result);
+    }
+
+    [HttpGet("{bankAccountId:guid}/godutch-transactions/preview")]
+    public async Task<IActionResult> PreviewTransactions(
+        Guid tenantId,
+        Guid bankAccountId,
+        [FromQuery] DateTime fromUtc,
+        [FromQuery] DateTime? toUtc,
+        CancellationToken cancellationToken)
+    {
+        if (toUtc.HasValue && toUtc.Value <= fromUtc)
+        {
+            return BadRequest("ToUtc moet later zijn dan FromUtc.");
+        }
+
+        var bankAccount = await bankAccountService.GetByIdAsync(tenantId, bankAccountId, cancellationToken);
+        if (bankAccount is null)
+        {
+            return NotFound();
+        }
+
+        var effectiveToUtc = toUtc ?? DateTime.UtcNow;
+
+        var transactions = await goDutchTransactionService.GetTransactionsAsync(
+            tenantId,
+            bankAccountId,
+            bankAccount.Iban,
+            fromUtc,
+            effectiveToUtc,
+            cancellationToken);
+
+        var periodTransactions = transactions
+            .Where(x => x.IsInRequestedPeriod && !x.IsBalanceAnchor)
+            .OrderBy(x => x.BookingDate)
+            .ThenBy(x => x.Id)
+            .ToList();
+
+        return Ok(periodTransactions);
     }
 }

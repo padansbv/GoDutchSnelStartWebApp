@@ -107,6 +107,35 @@ public sealed class BackendApiClient : IBackendApiClient
         return result ?? throw new InvalidOperationException("Force resync failed.");
     }
 
+    public async Task<IReadOnlyList<BankTransactionViewModel>> PreviewGoDutchTransactionsAsync(
+        Guid tenantId,
+        Guid bankAccountId,
+        DateTime fromUtc,
+        DateTime? toUtc = null,
+        CancellationToken cancellationToken = default)
+    {
+        var url = $"api/tenants/{tenantId}/bankaccounts/{bankAccountId}/godutch-transactions/preview" +
+                  $"?fromUtc={Uri.EscapeDataString(fromUtc.ToString("o"))}" +
+                  (toUtc.HasValue ? $"&toUtc={Uri.EscapeDataString(toUtc.Value.ToString("o"))}" : string.Empty);
+
+        var result = await ExecuteWithRetryAsync(
+            async ct =>
+            {
+                using var response = await _httpClient.GetAsync(url, ct);
+                response.EnsureSuccessStatusCode();
+
+                var responseResult = await response.Content.ReadFromJsonAsync<List<BankTransactionViewModel>>(
+                    cancellationToken: ct);
+
+                return (IReadOnlyList<BankTransactionViewModel>?)responseResult
+                    ?? throw new InvalidOperationException("Backend heeft geen transactielijst teruggegeven.");
+            },
+            operationName: $"preview GoDutch-transacties voor bankaccount {bankAccountId}",
+            cancellationToken);
+
+        return result ?? [];
+    }
+
     public async Task UpdateBankAccountSnelStartSettingsAsync(
         Guid tenantId,
         Guid bankAccountId,

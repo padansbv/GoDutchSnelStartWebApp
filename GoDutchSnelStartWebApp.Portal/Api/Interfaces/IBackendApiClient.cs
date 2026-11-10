@@ -26,6 +26,13 @@ public interface IBackendApiClient
         DateTime? toUtc = null,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<BankTransactionViewModel>> PreviewGoDutchTransactionsAsync(
+        Guid tenantId,
+        Guid bankAccountId,
+        DateTime fromUtc,
+        DateTime? toUtc = null,
+        CancellationToken cancellationToken = default);
+
     Task UpdateBankAccountSnelStartSettingsAsync(
         Guid tenantId,
         Guid bankAccountId,
