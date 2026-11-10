@@ -153,22 +153,28 @@ else
                     <div class="row g-3 align-items-end">
                         <div class="col-md-4">
                             <label class="form-label">Vanaf</label>
-                            <input type="date" class="form-control"
-                                   value="@row.PeriodFrom.ToString("yyyy-MM-dd")"
-                                   @onchange="e => row.PeriodFrom = DateTime.TryParse(e.Value?.ToString(), out var d) ? d : row.PeriodFrom" />
-                            <div class="form-text">@FormatNl(row.PeriodFrom)</div>
+                            <input type="text" class="form-control" placeholder="dd-mm-jjjj"
+                                   value="@row.PeriodFrom.ToString("dd-MM-yyyy")"
+                                   @onchange="e => OnPeriodFromTextChanged(row, e)" />
+                            @if (row.PeriodFromError is not null)
+                            {
+                                <div class="form-text text-danger">@row.PeriodFromError</div>
+                            }
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Tot en met</label>
-                            <input type="date" class="form-control"
-                                   value="@row.PeriodTo.ToString("yyyy-MM-dd")"
-                                   @onchange="e => row.PeriodTo = DateTime.TryParse(e.Value?.ToString(), out var d) ? d : row.PeriodTo" />
-                            <div class="form-text">@FormatNl(row.PeriodTo)</div>
+                            <input type="text" class="form-control" placeholder="dd-mm-jjjj"
+                                   value="@row.PeriodTo.ToString("dd-MM-yyyy")"
+                                   @onchange="e => OnPeriodToTextChanged(row, e)" />
+                            @if (row.PeriodToError is not null)
+                            {
+                                <div class="form-text text-danger">@row.PeriodToError</div>
+                            }
                         </div>
                         <div class="col-md-4">
                             <button class="btn btn-outline-success w-100"
                                     @onclick="() => PreviewPeriodAsync(row)"
-                                    disabled="@(row.IsSyncing || row.PeriodTo < row.PeriodFrom)">
+                                    disabled="@(row.IsSyncing || row.PeriodTo < row.PeriodFrom || row.PeriodFromError is not null || row.PeriodToError is not null)">
                                 @(row.IsSyncing ? "Bezig..." : "Transacties ophalen (voorbeeld)")
                             </button>
                         </div>
@@ -370,8 +376,41 @@ else
         row.ActionMessage = null;
     }
 
-    private static string FormatNl(DateTime d) =>
-        d.ToString("dd MMMM yyyy", System.Globalization.CultureInfo.GetCultureInfo("nl-NL"));
+    private static void OnPeriodFromTextChanged(SyncRow row, ChangeEventArgs e)
+    {
+        if (DateTime.TryParseExact(
+                e.Value?.ToString(),
+                "dd-MM-yyyy",
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None,
+                out var parsed))
+        {
+            row.PeriodFrom = parsed;
+            row.PeriodFromError = null;
+        }
+        else
+        {
+            row.PeriodFromError = "Ongeldige datum. Gebruik het formaat dd-mm-jjjj.";
+        }
+    }
+
+    private static void OnPeriodToTextChanged(SyncRow row, ChangeEventArgs e)
+    {
+        if (DateTime.TryParseExact(
+                e.Value?.ToString(),
+                "dd-MM-yyyy",
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None,
+                out var parsed))
+        {
+            row.PeriodTo = parsed;
+            row.PeriodToError = null;
+        }
+        else
+        {
+            row.PeriodToError = "Ongeldige datum. Gebruik het formaat dd-mm-jjjj.";
+        }
+    }
 
     private (DateTime fromUtc, DateTime toUtc) GetPeriodUtc(SyncRow row) => (
         DateTime.SpecifyKind(row.PeriodFrom.Date, DateTimeKind.Utc),
@@ -514,6 +553,8 @@ else
 
         public DateTime PeriodFrom { get; set; } = DateTime.Today.AddDays(-30);
         public DateTime PeriodTo { get; set; } = DateTime.Today;
+        public string? PeriodFromError { get; set; }
+        public string? PeriodToError { get; set; }
         public List<BankTransactionViewModel>? PreviewTransactions { get; set; }
 
         public bool EditAutoSyncEnabled { get; set; } = true;
