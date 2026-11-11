@@ -389,12 +389,15 @@ else
             var fromUtc = row.SyncStatus?.LastRunAt?.AddMinutes(-5) ?? DateTime.UtcNow.AddDays(-30);
             var result = await BackendApiClient.ForceResyncAsync(tenantId, row.BankAccount.Id, fromUtc);
 
-            row.ActionSuccess = result.DownloadSucceeded;
-            row.ActionMessage = !result.DownloadSucceeded
-                ? $"Sync mislukt: {result.Message}"
-                : result.GoDutchTransactionCount == 0
+            row.ActionSuccess = result.Status != "Failed";
+            row.ActionMessage = result.Status switch
+            {
+                "Succeeded" => $"Sync geslaagd: {result.ExportTransactionCount} transacties verwerkt.",
+                "Skipped" => result.PeriodTransactionCount == 0
                     ? $"Sync uitgevoerd: geen nieuwe transacties sinds {(row.SyncStatus?.LastRunAt?.ToLocalTime().ToString("dd-MM-yyyy HH:mm") ?? "30 dagen geleden")}. Gebruik \"Periode ophalen\" om een andere periode te controleren."
-                    : $"Sync geslaagd: {result.GoDutchTransactionCount} transacties verwerkt.";
+                    : result.Message,
+                _ => $"Sync mislukt: {result.Message}"
+            };
 
             var newStatus = await BackendApiClient.GetSyncStatusAsync(tenantId, row.BankAccount.Id);
             row.SyncStatus = newStatus;
@@ -501,10 +504,13 @@ else
 
             var result = await BackendApiClient.ForceResyncAsync(tenantId, row.BankAccount.Id, fromUtc, toUtc);
 
-            row.ActionSuccess = result.DownloadSucceeded;
-            row.ActionMessage = result.DownloadSucceeded
-                ? $"Geëxporteerd naar SnelStart: {result.GoDutchTransactionCount} transacties verwerkt ({row.PeriodFrom:dd-MM-yyyy} t/m {row.PeriodTo:dd-MM-yyyy})."
-                : $"Exporteren mislukt: {result.Message}";
+            row.ActionSuccess = result.Status != "Failed";
+            row.ActionMessage = result.Status switch
+            {
+                "Succeeded" => $"Geëxporteerd naar SnelStart: {result.ExportTransactionCount} transacties verwerkt ({row.PeriodFrom:dd-MM-yyyy} t/m {row.PeriodTo:dd-MM-yyyy}).",
+                "Skipped" => result.Message,
+                _ => $"Exporteren mislukt: {result.Message}"
+            };
 
             row.PreviewTransactions = null;
 
