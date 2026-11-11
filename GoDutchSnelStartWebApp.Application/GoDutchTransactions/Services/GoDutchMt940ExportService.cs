@@ -56,7 +56,7 @@ public sealed class GoDutchMt940ExportService : IGoDutchMt940ExportService
         var balances = _balanceCalculationService.Calculate(orderedTransactions);
 
         var exportTransactions = orderedTransactions
-            .Where(x => x.IsInRequestedPeriod)
+            .Where(x => x.IsInRequestedPeriod && !x.IsBalanceAnchor)
             .ToList();
 
         var openingBalance = balances.OpeningBalance;
