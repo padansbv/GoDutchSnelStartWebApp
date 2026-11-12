@@ -144,6 +144,28 @@
             setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
         }
 
+        function saveLastUsername(username) {
+            try {
+                if (!username) return;
+                var key = 'gs_recent_usernames';
+                var raw = localStorage.getItem(key);
+                var list = raw ? JSON.parse(raw) : [];
+                list = list.filter(function (u) { return u !== username; });
+                list.unshift(username);
+                if (list.length > 5) list = list.slice(0, 5);
+                localStorage.setItem(key, JSON.stringify(list));
+            } catch (e) { }
+        }
+
+        function getRecentUsernames() {
+            try {
+                var raw = localStorage.getItem('gs_recent_usernames');
+                return raw ? JSON.parse(raw) : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
         async function saveCredentials(username, password) {
             // Methode 1: Credential Management API (Chrome/Edge met HTTPS)
             if (window.PasswordCredential) {

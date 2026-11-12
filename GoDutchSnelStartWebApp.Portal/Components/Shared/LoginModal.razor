@@ -160,7 +160,14 @@
                             <div class="login-field">
                                 <label>Gebruikersnaam</label>
                                 <input class="form-control" type="text" @bind="_loginModel.Username"
-                                       placeholder="gebruikersnaam" name="username" autocomplete="username" />
+                                       placeholder="gebruikersnaam" name="username" autocomplete="username"
+                                       list="recent-usernames" />
+                                <datalist id="recent-usernames">
+                                    @foreach (var recent in _recentUsernames)
+                                    {
+                                        <option value="@recent"></option>
+                                    }
+                                </datalist>
                             </div>
                             <div class="login-field">
                                 <label>Wachtwoord</label>
@@ -334,12 +341,23 @@
         }
     }
 
-    private void OpenLogin()
+    private async Task OpenLogin()
     {
         _showAuthModal = true;
         _showRegister = false;
         _showForgotPassword = false;
         _registerSuccess = false;
+
+        try
+        {
+            var recent = await JSRuntime.InvokeAsync<string[]>("getRecentUsernames");
+            _recentUsernames = recent ?? Array.Empty<string>();
+            if (string.IsNullOrWhiteSpace(_loginModel.Username) && _recentUsernames.Length > 0)
+            {
+                _loginModel.Username = _recentUsernames[0];
+            }
+        }
+        catch { /* niet-kritiek */ }
     }
 
     private void OpenRegister()
@@ -361,6 +379,7 @@
     private readonly LoginRequestViewModel _loginModel = new();
     private string? _loginError;
     private bool _loginLoading;
+    private string[] _recentUsernames = Array.Empty<string>();
 
     // Wachtwoord vergeten
     private string _forgotEmail = string.Empty;
@@ -406,6 +425,7 @@
 
             Session.Login(user.Username, user.Module, user.Id, user.RequirePasswordChange, user.TenantId);
             await JSRuntime.InvokeVoidAsync("saveCredentials", _loginModel.Username, _loginModel.Password);
+            await JSRuntime.InvokeVoidAsync("saveLastUsername", user.Username);
             await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", "session_username", user.Username);
             await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", "session_module", user.Module);
             await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", "session_userid", user.Id.ToString());
