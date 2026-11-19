@@ -69,7 +69,10 @@
 
                 <div class="col-md-4">
                     <label class="form-label">GoDutch gebruikersnaam</label>
+                    <input type="text" style="display:none" aria-hidden="true" tabindex="-1" />
+                    <input type="password" style="display:none" aria-hidden="true" tabindex="-1" />
                     <InputText class="form-control"
+                               autocomplete="off"
                                @bind-Value="tenantGoDutchConnection.Username" />
                 </div>
 
@@ -77,6 +80,7 @@
                     <label class="form-label">GoDutch wachtwoord</label>
                     <InputText class="form-control"
                                type="password"
+                               autocomplete="new-password"
                                @bind-Value="tenantGoDutchConnection.Password" />
                     <div class="form-text">
                         @(tenantGoDutchConnection.HasPassword ? "Laat leeg om ongewijzigd te laten." : "Vul het wachtwoord in om te activeren.")
