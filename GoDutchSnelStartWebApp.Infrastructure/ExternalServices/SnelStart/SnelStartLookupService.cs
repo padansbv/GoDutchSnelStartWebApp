@@ -388,27 +388,41 @@ public sealed class SnelStartLookupService : ISnelStartLookupService
         }
 
         var settings = await _bankAccountSettingsRepository.GetByBankAccountIdAsync(bankAccountId, cancellationToken);
-        if (settings is null)
+
+        if (settings is not null &&
+            !string.IsNullOrWhiteSpace(settings.SnelStartAuthUrl) &&
+            !string.IsNullOrWhiteSpace(settings.SnelStartApiBaseUrl) &&
+            !string.IsNullOrWhiteSpace(settings.SnelStartClientKey))
         {
-            throw new KeyNotFoundException("Bank account settings not found.");
+            return settings;
         }
 
-        if (string.IsNullOrWhiteSpace(settings.SnelStartAuthUrl))
+        // Geen (volledige) override-credentials op bankaccount-niveau: val terug op de
+        // tenant-brede SnelStart-koppeling (zie SnelStart koppeling-pagina).
+        _logger.LogDebug(
+            "Geen bankaccount-specifieke SnelStart credentials gevonden voor {BankAccountId}, terugvallen op tenant-koppeling.",
+            bankAccountId);
+
+        var connection = await GetValidatedTenantConnectionAsync(tenantId, cancellationToken);
+        var clientKey = _secretEncryptionService.Decrypt(connection.ClientKeyEncrypted!);
+
+        if (string.IsNullOrWhiteSpace(clientKey))
         {
-            throw new InvalidOperationException("SnelStartAuthUrl is missing.");
+            throw new InvalidOperationException("SnelStart client key could not be decrypted.");
         }
 
-        if (string.IsNullOrWhiteSpace(settings.SnelStartApiBaseUrl))
+        return new Domain.Entities.BankAccountSetting
         {
-            throw new InvalidOperationException("SnelStartApiBaseUrl is missing.");
-        }
-
-        if (string.IsNullOrWhiteSpace(settings.SnelStartClientKey))
-        {
-            throw new InvalidOperationException("SnelStartClientKey is missing.");
-        }
-
-        return settings;
+            Id = settings?.Id ?? Guid.Empty,
+            BankAccountId = bankAccountId,
+            SnelStartAuthUrl = connection.AuthUrl,
+            SnelStartApiBaseUrl = connection.ApiBaseUrl,
+            SnelStartClientKey = clientKey,
+            ExportFormat = settings?.ExportFormat ?? SnelStartExportFormat.Mt940,
+            SyncEnabled = settings?.SyncEnabled ?? false,
+            CreatedUtc = settings?.CreatedUtc ?? DateTime.UtcNow,
+            ModifiedUtc = settings?.ModifiedUtc
+        };
     }
 
     private async Task<TenantSnelStartConnection> GetValidatedTenantConnectionAsync(
