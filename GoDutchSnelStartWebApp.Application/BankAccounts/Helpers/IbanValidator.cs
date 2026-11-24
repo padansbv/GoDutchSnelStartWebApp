@@ -6,9 +6,12 @@ public static class IbanValidator
 {
     private static readonly Regex IbanFormat = new(@"^[A-Z]{2}[0-9]{2}[A-Z0-9]{1,30}$", RegexOptions.Compiled);
 
+    public static string Normalize(string? iban) =>
+        (iban ?? string.Empty).Replace(" ", string.Empty).ToUpperInvariant();
+
     public static bool IsValid(string iban)
     {
-        var normalized = iban.Replace(" ", string.Empty).ToUpperInvariant();
+        var normalized = Normalize(iban);
 
         if (!IbanFormat.IsMatch(normalized))
         {

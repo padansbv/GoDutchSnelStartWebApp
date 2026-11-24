@@ -79,6 +79,7 @@ public sealed class GoDutchAccountLookupService : IGoDutchAccountLookupService
         }
 
         var accounts = new List<GoDutchAccountLookupDto>();
+        var hiddenCrossTenantCount = 0;
 
         foreach (var account in results.EnumerateArray())
         {
@@ -88,6 +89,25 @@ public sealed class GoDutchAccountLookupService : IGoDutchAccountLookupService
             if (string.IsNullOrWhiteSpace(accountId) && string.IsNullOrWhiteSpace(iban))
             {
                 continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(iban))
+            {
+                var claimedByOtherTenant = (await _bankAccountRepository.GetByIbanAsync(iban, cancellationToken))
+                    .FirstOrDefault(x => x.TenantId != tenantId);
+
+                if (claimedByOtherTenant is not null)
+                {
+                    hiddenCrossTenantCount++;
+
+                    _logger.LogWarning(
+                        "GoDutch account lookup: IBAN {Iban} die GoDutch teruggaf voor tenant {TenantId} staat al geregistreerd bij een andere tenant ({ExistingTenantId}). Dit account wordt niet getoond (mogelijke GoDutch-API-scoping-fout).",
+                        iban,
+                        tenantId,
+                        claimedByOtherTenant.TenantId);
+
+                    continue;
+                }
             }
 
             var accountName = GetFirstString(
@@ -133,10 +153,11 @@ public sealed class GoDutchAccountLookupService : IGoDutchAccountLookupService
             .ToList();
 
         _logger.LogInformation(
-            "GoDutch bankrekening lookup afgerond. TenantId: {TenantId}, ontvangen: {ReceivedCount}, bestaande matches: {ExistingMatches}.",
+            "GoDutch bankrekening lookup afgerond. TenantId: {TenantId}, ontvangen: {ReceivedCount}, bestaande matches: {ExistingMatches}, verborgen wegens cross-tenant match: {HiddenCrossTenantCount}.",
             tenantId,
             orderedAccounts.Count,
-            orderedAccounts.Count(x => x.AlreadyExists));
+            orderedAccounts.Count(x => x.AlreadyExists),
+            hiddenCrossTenantCount);
 
         return orderedAccounts;
     }

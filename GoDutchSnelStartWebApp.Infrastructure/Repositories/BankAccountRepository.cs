@@ -47,6 +47,32 @@ public sealed class BankAccountRepository : IBankAccountRepository
         return bankAccounts;
     }
 
+    public async Task<IReadOnlyList<BankAccount>> GetByIbanAsync(string iban, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Executing stored procedure dbo.BankAccounts_GetByIban");
+
+        var bankAccounts = new List<BankAccount>();
+
+        await using var connection = _sqlConnectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+
+        await using var command = new SqlCommand("dbo.BankAccounts_GetByIban", connection)
+        {
+            CommandType = CommandType.StoredProcedure
+        };
+
+        command.Parameters.Add(new SqlParameter("@Iban", SqlDbType.NVarChar, 34) { Value = iban });
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            bankAccounts.Add(MapBankAccount(reader));
+        }
+
+        return bankAccounts;
+    }
+
     public async Task<BankAccount?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         _logger.LogDebug("Executing stored procedure dbo.BankAccounts_GetById for bank account {BankAccountId}", id);

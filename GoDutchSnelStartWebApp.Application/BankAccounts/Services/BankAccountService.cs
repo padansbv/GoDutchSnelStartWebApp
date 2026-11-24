@@ -116,6 +116,8 @@ public sealed class BankAccountService : IBankAccountService
             throw new KeyNotFoundException("Tenant not found.");
         }
 
+        await EnsureIbanNotClaimedByOtherTenantAsync(tenantId, request.Iban, cancellationToken);
+
         var bankAccount = new BankAccount
         {
             Id = Guid.NewGuid(),
@@ -172,6 +174,8 @@ public sealed class BankAccountService : IBankAccountService
         {
             throw new KeyNotFoundException("Bank account not found.");
         }
+
+        await EnsureIbanNotClaimedByOtherTenantAsync(tenantId, request.Iban, cancellationToken);
 
         existingBankAccount.Iban = request.Iban.Trim();
         existingBankAccount.AccountName = request.AccountName.Trim();
@@ -246,6 +250,25 @@ public sealed class BankAccountService : IBankAccountService
             TriggerSource = lastRun.TriggerSource.ToString(),
             Message = lastRun.Message
         };
+    }
+
+    private async Task EnsureIbanNotClaimedByOtherTenantAsync(Guid tenantId, string iban, CancellationToken cancellationToken)
+    {
+        var normalizedIban = IbanValidator.Normalize(iban);
+        var matches = await _bankAccountRepository.GetByIbanAsync(normalizedIban, cancellationToken);
+        var claimedByOtherTenant = matches.FirstOrDefault(x => x.TenantId != tenantId);
+
+        if (claimedByOtherTenant is not null)
+        {
+            _logger.LogWarning(
+                "Geblokkeerd: IBAN {Iban} is al geregistreerd bij tenant {ExistingTenantId}, poging tot koppelen bij tenant {TenantId}.",
+                normalizedIban,
+                claimedByOtherTenant.TenantId,
+                tenantId);
+
+            throw new InvalidOperationException(
+                "Deze IBAN staat al geregistreerd bij een andere tenant en kan niet nogmaals gekoppeld worden.");
+        }
     }
 
     private static BankAccountDto MapToDto(BankAccount bankAccount)
