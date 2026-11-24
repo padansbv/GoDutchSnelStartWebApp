@@ -229,6 +229,7 @@ else
                                 <th class="text-center">Auto-sync</th>
                                 <th class="text-center">Interval (min)</th>
                                 <th></th>
+                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -273,6 +274,12 @@ else
                                             @(row.IsSaving ? "..." : (row.Link is null ? "Koppelen" : "Opslaan"))
                                         </button>
                                     </td>
+                                    <td>
+                                        <a class="btn btn-sm btn-outline-primary"
+                                           href="@($"/bankaccounts/{row.BankAccount.Id}?tab=snelstart")">
+                                            Dagboek koppelen
+                                        </a>
+                                    </td>
                                 </tr>
                             }
                         </tbody>
@@ -280,6 +287,8 @@ else
                 </div>
                 <div class="form-text mt-2">
                     Wijzigingen per rij opslaan met de knop rechts. Laat "Administratie" leeg om een koppeling te verwijderen of niet in te stellen.
+                    Gebruik <strong>Dagboek koppelen</strong> om het SnelStart-bankdagboek (en automatisch het grootboek)
+                    voor deze bankrekening in te stellen.
                 </div>
             }
         </div>

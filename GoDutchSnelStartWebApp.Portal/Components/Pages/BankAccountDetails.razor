@@ -823,6 +823,9 @@
     [Parameter]
     public Guid BankAccountId { get; set; }
 
+    [SupplyParameterFromQuery(Name = "tab")]
+    public string? Tab { get; set; }
+
     private Guid TenantId => Session.TenantId ?? TenantOptions.Value.TenantId;
 
     private bool isLoading = true;
@@ -860,6 +863,11 @@
 
     protected override async Task OnParametersSetAsync()
     {
+        if (string.Equals(Tab, "snelstart", StringComparison.OrdinalIgnoreCase))
+        {
+            activeTab = "snelstart";
+        }
+
         await LoadAsync();
     }
 

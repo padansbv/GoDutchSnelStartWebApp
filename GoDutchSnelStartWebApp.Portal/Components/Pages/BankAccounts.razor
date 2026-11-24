@@ -257,7 +257,7 @@
     }
     else
     {
-        <div class="card shadow-sm">
+        <div class="card shadow-sm" id="lokale-bankaccounts">
             <div class="card-header">
                 Lokale bankaccounts
             </div>
@@ -309,7 +309,7 @@
                                             </a>
 
                                             <a class="btn btn-sm btn-outline-primary"
-                                               href="@($"/bankaccounts/{row.BankAccount.Id}#snelstart")">
+                                               href="@($"/bankaccounts/{row.BankAccount.Id}?tab=snelstart")">
                                                 SnelStart koppeling
                                             </a>
 
