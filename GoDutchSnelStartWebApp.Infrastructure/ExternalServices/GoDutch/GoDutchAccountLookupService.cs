@@ -2,6 +2,7 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using GoDutchSnelStartWebApp.Application.Abstractions.Repositories;
 using GoDutchSnelStartWebApp.Application.Abstractions.Security;
 using GoDutchSnelStartWebApp.Application.Configuration;
@@ -15,9 +16,12 @@ namespace GoDutchSnelStartWebApp.Infrastructure.ExternalServices.GoDutch;
 
 public sealed class GoDutchAccountLookupService : IGoDutchAccountLookupService
 {
+    private static readonly Regex MaskedAccountSuffix = new(@"\**\d+\s*$", RegexOptions.Compiled);
+
     private readonly HttpClient _httpClient;
     private readonly ITenantGoDutchConnectionRepository _connectionRepository;
     private readonly IBankAccountRepository _bankAccountRepository;
+    private readonly ITenantRepository _tenantRepository;
     private readonly ISecretEncryptionService _encryptionService;
     private readonly ILogger<GoDutchAccountLookupService> _logger;
     private readonly GoDutchApiRetryOptions _retryOptions;
@@ -27,6 +31,7 @@ public sealed class GoDutchAccountLookupService : IGoDutchAccountLookupService
         HttpClient httpClient,
         ITenantGoDutchConnectionRepository connectionRepository,
         IBankAccountRepository bankAccountRepository,
+        ITenantRepository tenantRepository,
         ISecretEncryptionService encryptionService,
         ILogger<GoDutchAccountLookupService> logger,
         IOptions<GoDutchApiRetryOptions> retryOptions)
@@ -34,6 +39,7 @@ public sealed class GoDutchAccountLookupService : IGoDutchAccountLookupService
         _httpClient = httpClient;
         _connectionRepository = connectionRepository;
         _bankAccountRepository = bankAccountRepository;
+        _tenantRepository = tenantRepository;
         _encryptionService = encryptionService;
         _logger = logger;
         _retryOptions = retryOptions.Value;
@@ -45,6 +51,12 @@ public sealed class GoDutchAccountLookupService : IGoDutchAccountLookupService
     {
         var connection = await _connectionRepository.GetByTenantIdAsync(tenantId, cancellationToken);
         ConfigureHttpClient(connection, tenantId);
+
+        var tenant = await _tenantRepository.GetByIdAsync(tenantId, cancellationToken);
+        var tenantNameTokens = new[] { NormalizeCompanyName(tenant?.Name), NormalizeCompanyName(tenant?.CompanyName) }
+            .Where(x => !string.IsNullOrEmpty(x))
+            .Distinct()
+            .ToList();
 
         var existingBankAccounts = (await _bankAccountRepository.GetByTenantIdAsync(
             tenantId,
@@ -80,6 +92,7 @@ public sealed class GoDutchAccountLookupService : IGoDutchAccountLookupService
 
         var accounts = new List<GoDutchAccountLookupDto>();
         var hiddenCrossTenantCount = 0;
+        var hiddenNameMismatchCount = 0;
 
         foreach (var account in results.EnumerateArray())
         {
@@ -90,6 +103,8 @@ public sealed class GoDutchAccountLookupService : IGoDutchAccountLookupService
             {
                 continue;
             }
+
+            existingBankAccountsByIban.TryGetValue(iban, out var existingBankAccount);
 
             if (!string.IsNullOrWhiteSpace(iban))
             {
@@ -123,7 +138,25 @@ public sealed class GoDutchAccountLookupService : IGoDutchAccountLookupService
                 "holderName",
                 "ownerName");
 
-            existingBankAccountsByIban.TryGetValue(iban, out var existingBankAccount);
+            // GoDutch v1 geeft via de (gedeelde) tenant-credentials soms ook rekeningen van een
+            // andere klant terug (bevestigde API-scoping-fout). Een account dat nog nergens
+            // lokaal gekoppeld is EN waarvan de naam duidelijk niet bij deze tenant hoort, wordt
+            // niet getoond, ook al is er nog geen eigen BankAccount-rij om tegen te matchen.
+            if (existingBankAccount is null
+                && tenantNameTokens.Count > 0
+                && !AccountNameLikelyBelongsToTenant(accountName, accountHolderName, tenantNameTokens))
+            {
+                hiddenNameMismatchCount++;
+
+                _logger.LogWarning(
+                    "GoDutch account lookup: account {AccountId} (IBAN {Iban}, naam '{AccountName}') voor tenant {TenantId} komt naamsmatig niet overeen met de tenant. Dit account wordt niet getoond (mogelijke GoDutch-API-scoping-fout).",
+                    accountId,
+                    iban,
+                    accountName ?? accountHolderName,
+                    tenantId);
+
+                continue;
+            }
 
             var dto = new GoDutchAccountLookupDto
             {
@@ -153,13 +186,49 @@ public sealed class GoDutchAccountLookupService : IGoDutchAccountLookupService
             .ToList();
 
         _logger.LogInformation(
-            "GoDutch bankrekening lookup afgerond. TenantId: {TenantId}, ontvangen: {ReceivedCount}, bestaande matches: {ExistingMatches}, verborgen wegens cross-tenant match: {HiddenCrossTenantCount}.",
+            "GoDutch bankrekening lookup afgerond. TenantId: {TenantId}, ontvangen: {ReceivedCount}, bestaande matches: {ExistingMatches}, verborgen wegens cross-tenant IBAN-match: {HiddenCrossTenantCount}, verborgen wegens naamsmismatch: {HiddenNameMismatchCount}.",
             tenantId,
             orderedAccounts.Count,
             orderedAccounts.Count(x => x.AlreadyExists),
-            hiddenCrossTenantCount);
+            hiddenCrossTenantCount,
+            hiddenNameMismatchCount);
 
         return orderedAccounts;
+    }
+
+    private static bool AccountNameLikelyBelongsToTenant(
+        string? accountName,
+        string? accountHolderName,
+        IReadOnlyList<string> tenantNameTokens)
+    {
+        var candidates = new[] { NormalizeCompanyName(accountName), NormalizeCompanyName(accountHolderName) }
+            .Where(x => !string.IsNullOrEmpty(x))
+            .ToList();
+
+        if (candidates.Count == 0)
+        {
+            // GoDutch gaf geen bruikbare naam terug om op te vergelijken; dan kunnen we dit niet
+            // beoordelen en vallen we terug op de IBAN-based cross-tenant check verderop.
+            return true;
+        }
+
+        return candidates.Any(candidate => tenantNameTokens.Any(tenantToken =>
+            candidate.Contains(tenantToken, StringComparison.Ordinal)
+            || tenantToken.Contains(candidate, StringComparison.Ordinal)));
+    }
+
+    private static string NormalizeCompanyName(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return string.Empty;
+        }
+
+        // Verwijdert een gemaskeerde rekeningsuffix zoals " **6080" voordat op bedrijfsnaam
+        // vergeleken wordt.
+        var withoutMaskedSuffix = MaskedAccountSuffix.Replace(name.Trim(), string.Empty);
+
+        return new string(withoutMaskedSuffix.Where(char.IsLetter).ToArray()).ToUpperInvariant();
     }
 
     private void ConfigureHttpClient(TenantGoDutchConnection? connection, Guid tenantId)
