@@ -9,6 +9,7 @@
 @inject IJSRuntime JSRuntime
 @inject IOptions<PortalTenantOptions> TenantOptions
 @inject ILogger<LoginModal> Logger
+@implements IDisposable
 
 @if (!Session.IsLoggedIn)
 {
@@ -339,6 +340,29 @@
             _showRegister = true;
             _showAuthModal = true;
         }
+
+        Session.OnChange += HandleSessionChanged;
+    }
+
+    private void HandleSessionChanged()
+    {
+        if (!Session.IsLoggedIn)
+        {
+            // Direct het inlogformulier tonen na uitloggen, i.p.v. alleen de landingspagina
+            // met losse "Inloggen"-knop.
+            _showRegister = false;
+            _showForgotPassword = false;
+            _registerSuccess = false;
+            _loginModel.Password = string.Empty;
+            _showAuthModal = true;
+        }
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        Session.OnChange -= HandleSessionChanged;
     }
 
     private async Task OpenLogin()
