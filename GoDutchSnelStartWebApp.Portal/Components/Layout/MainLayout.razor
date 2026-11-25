@@ -70,7 +70,16 @@
             }
 
             <section class="app-content" id="app-content">
-                @Body
+                @if (Session.Module == "Beheerder" && Session.TenantId is null && CurrentPageRequiresTenant())
+                {
+                    <div class="alert alert-info">
+                        Selecteer eerst een tenant via "Bekijken als tenant" in de zijbalk om deze pagina te kunnen gebruiken.
+                    </div>
+                }
+                else
+                {
+                    @Body
+                }
             </section>
         </main>
     </div>
@@ -136,6 +145,22 @@
         }
 
         try { await JSRuntime.InvokeVoidAsync("scrollToContentIfRequested"); } catch { }
+    }
+
+    /// <summary>
+    /// Routes die een Beheerder zonder gekozen tenant wél mag openen: de Beheerder-eigen
+    /// pagina's (die hebben zelf een tenant-kiezer of zijn tenant-onafhankelijk) en de
+    /// tenant-onafhankelijke algemene pagina's.
+    /// </summary>
+    private bool CurrentPageRequiresTenant()
+    {
+        var path = new Uri(Navigation.Uri).AbsolutePath.TrimEnd('/');
+        if (path.Length == 0) return false; // Start
+        if (path.StartsWith("/beheerder", StringComparison.OrdinalIgnoreCase)) return false;
+        if (path.StartsWith("/tenants/onboard", StringComparison.OrdinalIgnoreCase)) return false;
+        if (path.StartsWith("/notifications", StringComparison.OrdinalIgnoreCase)) return false;
+        if (path.StartsWith("/mijn-account", StringComparison.OrdinalIgnoreCase)) return false;
+        return true;
     }
 
     private async Task HandleLogout()
