@@ -1,6 +1,10 @@
 @using GoDutchSnelStartWebApp.Portal.Services
+@using GoDutchSnelStartWebApp.Portal.Api.Interfaces
+@using GoDutchSnelStartWebApp.Portal.Models
 @inject AppSession Session
 @inject IJSRuntime JSRuntime
+@inject IBackendApiClient BackendApiClient
+@inject NavigationManager Navigation
 @implements IDisposable
 
 <nav class="app-nav">
@@ -24,6 +28,30 @@
             <NotificationBadge />
         </NavLink>
     </div>
+
+    @* Tenant-kiezer — alleen voor Beheerder; bepaalt Session.TenantId voor alle onderstaande
+       tenant-gescopede pagina's (die lezen zonder uitzondering Session.TenantId). *@
+    @if (IsBeheerder())
+    {
+        <div class="app-nav-section">
+            <div class="app-nav-heading-dark">Bekijken als tenant</div>
+            @if (isLoadingTenants)
+            {
+                <div class="app-nav-link-icon px-3 text-muted">Laden...</div>
+            }
+            else
+            {
+                <select class="form-select form-select-sm mx-2" style="width:calc(100% - 1rem)"
+                        @bind="selectedViewingTenantId" @bind:after="OnViewingTenantChangedAsync">
+                    <option value="@Guid.Empty">-- Geen tenant gekozen --</option>
+                    @foreach (var tenant in allTenants)
+                    {
+                        <option value="@tenant.Id">@tenant.Name</option>
+                    }
+                </select>
+            }
+        </div>
+    }
 
     @* GoDutch — zichtbaar voor Beheerder en GoDutch *@
     @if (IsModuleVisible("GoDutch"))
@@ -169,9 +197,38 @@
 </nav>
 
 @code {
-    protected override void OnInitialized()
+    private IReadOnlyList<TenantViewModel> allTenants = [];
+    private bool isLoadingTenants;
+    private Guid selectedViewingTenantId = Guid.Empty;
+
+    protected override async Task OnInitializedAsync()
     {
         Session.OnChange += StateHasChanged;
+        selectedViewingTenantId = Session.TenantId ?? Guid.Empty;
+
+        if (IsBeheerder())
+        {
+            isLoadingTenants = true;
+            try
+            {
+                allTenants = (await BackendApiClient.GetAllTenantsAsync())
+                    .OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+            catch { /* niet-kritiek: tenant-kiezer blijft dan leeg */ }
+            finally { isLoadingTenants = false; }
+        }
+    }
+
+    private Task OnViewingTenantChangedAsync()
+    {
+        var tenant = allTenants.FirstOrDefault(t => t.Id == selectedViewingTenantId);
+        Session.SetBeheerderViewingTenant(selectedViewingTenantId, tenant?.Name ?? string.Empty);
+
+        // Terug naar Start: een al geopende tenant-pagina heeft zijn data maar één keer
+        // (in OnInitializedAsync) opgehaald met de vórige tenant, dus die ververst niet vanzelf.
+        Navigation.NavigateTo("/");
+        return Task.CompletedTask;
     }
 
     public void Dispose()

@@ -33,6 +33,24 @@ public sealed class AppSession
         NotifyChanged();
     }
 
+    /// <summary>
+    /// Laat een Beheerder tijdelijk "als" een gekozen tenant door de tenant-gescopede pagina's
+    /// kijken/werken (die lezen allemaal Session.TenantId). Alleen van toepassing op het
+    /// Beheerder-account zelf; voor een echte tenant-gebruiker verandert dit niets omdat
+    /// TenantId dan al bij Login is vastgezet.
+    /// </summary>
+    public void SetBeheerderViewingTenant(Guid tenantId, string tenantName)
+    {
+        if (Module != "Beheerder")
+        {
+            return;
+        }
+
+        TenantId = tenantId == Guid.Empty ? null : tenantId;
+        TenantName = tenantId == Guid.Empty ? string.Empty : tenantName;
+        NotifyChanged();
+    }
+
     public void SetSnelStartKeyExpiry(DateTime? keyExpiresUtc)
     {
         var now = DateTime.UtcNow;
