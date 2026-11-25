@@ -1,11 +1,8 @@
 @page "/beheerder/snelstart-api"
 
-@using GoDutchSnelStartWebApp.Portal.Configuration
 @using GoDutchSnelStartWebApp.Portal.Models
-@using Microsoft.Extensions.Options
 
 @inject IBackendApiClient BackendApiClient
-@inject IOptions<PortalTenantOptions> TenantOptions
 @inject ILogger<SnelStartApiBeheer> Logger
 @inject AppSession Session
 @inject NavigationManager Navigation
@@ -25,7 +22,31 @@
     van een verbinding. U hoeft deze sleutel hier niet in te voeren.
 </p>
 
-@if (isLoading)
+<div class="card mb-3">
+    <div class="card-body">
+        <label class="form-label fw-bold">Tenant</label>
+        @if (isLoadingTenants)
+        {
+            <p class="text-muted mb-0">Tenants laden...</p>
+        }
+        else
+        {
+            <select class="form-select" style="max-width:420px" @bind="selectedTenantId" @bind:after="OnTenantSelectedAsync">
+                <option value="@Guid.Empty">-- Selecteer tenant --</option>
+                @foreach (var tenant in allTenants)
+                {
+                    <option value="@tenant.Id">@tenant.Name</option>
+                }
+            </select>
+        }
+    </div>
+</div>
+
+@if (selectedTenantId == Guid.Empty)
+{
+    <div class="alert alert-info">Selecteer hierboven een tenant om de SnelStart-koppeling te bekijken of aan te maken.</div>
+}
+else if (isLoading)
 {
     <p class="text-muted">Gegevens laden...</p>
 }
@@ -33,7 +54,7 @@ else
 {
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-            <strong>SnelStart API-verbinding voor uw account</strong>
+            <strong>SnelStart API-verbinding voor @(allTenants.FirstOrDefault(t => t.Id == selectedTenantId)?.Name ?? "geselecteerde tenant")</strong>
             @if (connection is not null)
             {
                 <span class="badge @(connection.IsActive ? "bg-success" : "bg-secondary")">
@@ -171,7 +192,9 @@ else
 </style>
 
 @code {
-    private Guid TenantId => Session.TenantId ?? TenantOptions.Value.TenantId;
+    private Guid selectedTenantId = Guid.Empty;
+    private IReadOnlyList<TenantViewModel> allTenants = [];
+    private bool isLoadingTenants;
 
     private TenantSnelStartConnectionViewModel? connection;
     private bool isSaving;
@@ -179,7 +202,33 @@ else
     private string? connSuccess;
     private string? connError;
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        isLoadingTenants = true;
+        try
+        {
+            allTenants = (await BackendApiClient.GetAllTenantsAsync())
+                .OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Tenantlijst laden mislukt.");
+            connError = $"Tenantlijst laden mislukt: {ex.Message}";
+        }
+        finally { isLoadingTenants = false; }
+    }
+
+    private async Task OnTenantSelectedAsync()
+    {
+        if (selectedTenantId == Guid.Empty)
+        {
+            connection = null;
+            return;
+        }
+
+        await LoadAsync();
+    }
 
     private async Task LoadAsync()
     {
@@ -188,7 +237,7 @@ else
         connError = null;
         try
         {
-            connection = await BackendApiClient.GetTenantSnelStartConnectionAsync(TenantId);
+            connection = await BackendApiClient.GetTenantSnelStartConnectionAsync(selectedTenantId);
         }
         catch (Exception ex)
         {
@@ -213,7 +262,7 @@ else
                 ConnectionType  = "CustomKey",
                 IsActive        = true
             };
-            await BackendApiClient.CreateTenantSnelStartConnectionAsync(TenantId, request);
+            await BackendApiClient.CreateTenantSnelStartConnectionAsync(selectedTenantId, request);
             connSuccess = "Verbinding aangemaakt.";
             await LoadAsync();
         }
@@ -241,7 +290,7 @@ else
                 SubscriptionKey = null, // keep existing; backend auto-fills from config if missing
                 IsActive        = connection.IsActive
             };
-            await BackendApiClient.UpdateTenantSnelStartConnectionAsync(TenantId, connection.Id, request);
+            await BackendApiClient.UpdateTenantSnelStartConnectionAsync(selectedTenantId, connection.Id, request);
             connSuccess = "Verbinding opgeslagen.";
             await LoadAsync();
         }
