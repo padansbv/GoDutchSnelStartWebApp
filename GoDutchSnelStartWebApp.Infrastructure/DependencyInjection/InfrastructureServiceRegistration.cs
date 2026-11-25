@@ -82,6 +82,12 @@ public static class InfrastructureServiceRegistration
             // Per individuele myPOS-aanroep (niet cumulatief over alle paginas van een
             // saldo-overzicht, dat kan meerdere minuten duren en heeft eigen retries).
             client.Timeout = TimeSpan.FromSeconds(90);
+
+            // myPOS' API staat achter Cloudflare; .NET's HttpClient stuurt standaard geen
+            // User-Agent mee, en Cloudflare's bot-detectie beantwoordt zo'n request met een
+            // "Just a moment..."-JS-challenge (HTTP 403) i.p.v. de echte API-respons.
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) GoDutchSnelStartWebApp/1.0");
         });
         services.AddHttpClient<IMyPosExportBatchExportService, MyPosExportBatchExportService>(client =>
         {
