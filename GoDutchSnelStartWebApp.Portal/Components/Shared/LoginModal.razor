@@ -346,16 +346,24 @@
 
     private void HandleSessionChanged()
     {
-        if (!Session.IsLoggedIn)
+        // Alleen reageren op uitloggen. Dit event vuurt ook bij inloggen (Session.Login),
+        // en dan draait HandleLogin hieronder nog (saveCredentials/sessionStorage/navigatie) --
+        // een StateHasChanged op dat moment verbergt dit component meteen (de buitenste @if
+        // hierboven wordt false zodra IsLoggedIn true is), wat die lopende handler laat
+        // draaien op een inmiddels afgebroken render en JS-interopcalls zoals saveCredentials
+        // met "is not a function" laat stuklopen.
+        if (Session.IsLoggedIn)
         {
-            // Direct het inlogformulier tonen na uitloggen, i.p.v. alleen de landingspagina
-            // met losse "Inloggen"-knop.
-            _showRegister = false;
-            _showForgotPassword = false;
-            _registerSuccess = false;
-            _loginModel.Password = string.Empty;
-            _showAuthModal = true;
+            return;
         }
+
+        // Direct het inlogformulier tonen na uitloggen, i.p.v. alleen de landingspagina
+        // met losse "Inloggen"-knop.
+        _showRegister = false;
+        _showForgotPassword = false;
+        _registerSuccess = false;
+        _loginModel.Password = string.Empty;
+        _showAuthModal = true;
 
         InvokeAsync(StateHasChanged);
     }
@@ -447,20 +455,39 @@
                 return;
             }
 
+            // Session.Login staat hierboven vast; alles hieronder is browser-opslag/nice-to-have.
+            // Eén mislukte JS-interopcall (bv. een race met een gelijktijdige component-render,
+            // of een browser die de Credential Management API niet ondersteunt) mag een al
+            // geslaagde login niet laten stranden op een foutmelding -- dus hier zelf afvangen
+            // in plaats van de buitenste catch dit als login-fout laten tonen.
             Session.Login(user.Username, user.Module, user.Id, user.RequirePasswordChange, user.TenantId);
-            await JSRuntime.InvokeVoidAsync("saveCredentials", _loginModel.Username, _loginModel.Password);
-            await JSRuntime.InvokeVoidAsync("saveLastUsername", user.Username);
-            await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", "session_username", user.Username);
-            await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", "session_module", user.Module);
-            await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", "session_userid", user.Id.ToString());
-            await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", "session_require_pw_change", user.RequirePasswordChange ? "true" : "false");
-            await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", "session_tenantid", user.TenantId?.ToString() ?? "");
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("saveCredentials", _loginModel.Username, _loginModel.Password);
+                await JSRuntime.InvokeVoidAsync("saveLastUsername", user.Username);
+                await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", "session_username", user.Username);
+                await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", "session_module", user.Module);
+                await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", "session_userid", user.Id.ToString());
+                await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", "session_require_pw_change", user.RequirePasswordChange ? "true" : "false");
+                await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", "session_tenantid", user.TenantId?.ToString() ?? "");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Niet-kritieke browseropslag na login mislukt voor {Username}.", user.Username);
+            }
 
             var tenantName = user.TenantId.HasValue
                 ? await ApiClient.GetTenantNameAsync(user.TenantId.Value) ?? user.TenantId.Value.ToString()
                 : "(geen tenant gekoppeld)";
             Session.SetTenantName(tenantName);
-            await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", "session_tenantname", tenantName);
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("sessionStorage.setItem", "session_tenantname", tenantName);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Niet-kritieke browseropslag (tenantnaam) na login mislukt voor {Username}.", user.Username);
+            }
 
             Logger.LogInformation("Login: gebruiker={Username} module={Module} tenant={TenantName} tenantId={TenantId}",
                 user.Username, user.Module, tenantName, user.TenantId);

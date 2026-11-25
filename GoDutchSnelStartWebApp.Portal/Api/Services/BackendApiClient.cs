@@ -1362,6 +1362,13 @@ public sealed class BackendApiClient : IBackendApiClient
         }
     }
 
+    public async Task<IReadOnlyList<TenantViewModel>> GetAllTenantsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _httpClient.GetFromJsonAsync<List<TenantViewModel>>("api/tenants", cancellationToken);
+        return result ?? [];
+    }
+
     public async Task<bool> SelfChangePasswordAsync(
         SelfChangePasswordRequestViewModel request,
         CancellationToken cancellationToken = default)

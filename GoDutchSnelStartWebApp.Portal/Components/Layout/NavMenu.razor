@@ -139,6 +139,10 @@
         <div class="app-nav-section">
             <div class="app-nav-heading-dark">Beheer</div>
 
+            <NavLink class="app-nav-link" @onclick="ScrollToContent" href="beheerder/tenants" Match="NavLinkMatch.Prefix">
+                <span class="app-nav-link-icon">📋</span>
+                <span>Tenants overzicht</span>
+            </NavLink>
             <NavLink class="app-nav-link" @onclick="ScrollToContent" href="tenants/onboard" Match="NavLinkMatch.Prefix">
                 <span class="app-nav-link-icon">🏢</span>
                 <span>Tenant onboarden</span>

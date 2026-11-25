@@ -1,0 +1,93 @@
+@page "/beheerder/tenants"
+
+@using GoDutchSnelStartWebApp.Portal.Models
+
+@inject IBackendApiClient BackendApiClient
+@inject ILogger<TenantsOverzicht> Logger
+@inject AppSession Session
+
+<PageTitle>Tenants overzicht</PageTitle>
+
+@if (Session.Module != "Beheerder")
+{
+    <div class="alert alert-danger">Geen toegang.</div>
+    return;
+}
+
+<h1 class="mb-1">Tenants overzicht</h1>
+<p class="text-muted mb-4">Welke module(s) een tenant heeft en de huidige status.</p>
+
+@if (isLoading)
+{
+    <p class="text-muted">Gegevens laden...</p>
+}
+else if (!string.IsNullOrWhiteSpace(loadError))
+{
+    <div class="alert alert-danger">@loadError</div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped align-middle">
+            <thead>
+                <tr>
+                    <th>Naam</th>
+                    <th>Bedrijfsnaam</th>
+                    <th>GoDutch</th>
+                    <th>MyPos</th>
+                    <th>Status</th>
+                    <th>Actief</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var tenant in tenants)
+                {
+                    <tr>
+                        <td>@tenant.Name</td>
+                        <td>@tenant.CompanyName</td>
+                        <td>
+                            <span class="badge @(tenant.GoDutchEnabled ? "bg-success" : "bg-secondary")">
+                                @(tenant.GoDutchEnabled ? "Ja" : "Nee")
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge @(tenant.MyPosEnabled ? "bg-success" : "bg-secondary")">
+                                @(tenant.MyPosEnabled ? "Ja" : "Nee")
+                            </span>
+                        </td>
+                        <td>@tenant.Status</td>
+                        <td>
+                            <span class="badge @(tenant.IsActive ? "bg-success" : "bg-secondary")">
+                                @(tenant.IsActive ? "Ja" : "Nee")
+                            </span>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private IReadOnlyList<TenantViewModel> tenants = [];
+    private bool isLoading;
+    private string? loadError;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        isLoading = true;
+        loadError = null;
+        try
+        {
+            tenants = await BackendApiClient.GetAllTenantsAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Tenants overzicht laden mislukt.");
+            loadError = $"Laden mislukt: {ex.Message}";
+        }
+        finally { isLoading = false; }
+    }
+}

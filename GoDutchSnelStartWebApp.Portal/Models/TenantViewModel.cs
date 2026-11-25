@@ -10,6 +10,7 @@ public sealed class TenantViewModel
     public bool GoDutchEnabled { get; set; }
     public bool MyPosEnabled { get; set; }
     public string Status { get; set; } = string.Empty;
+    public bool IsActive { get; set; }
     public DateTime? TrialStartsUtc { get; set; }
     public DateTime? TrialEndsUtc { get; set; }
     public DateTime CreatedUtc { get; set; }

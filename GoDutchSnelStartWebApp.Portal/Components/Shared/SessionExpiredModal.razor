@@ -123,7 +123,14 @@
                 return;
             }
 
-            await JSRuntime.InvokeVoidAsync("saveCredentials", _model.Username, _model.Password);
+            try
+            {
+                await JSRuntime.InvokeVoidAsync("saveCredentials", _model.Username, _model.Password);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Niet-kritieke browseropslag na her-inloggen mislukt voor {Username}.", _model.Username);
+            }
             Logger.LogInformation("Sessie hersteld na verval: gebruiker={Username} module={Module}", user.Username, user.Module);
             Session.ClearSessionExpired();
             _model.Password = string.Empty;
