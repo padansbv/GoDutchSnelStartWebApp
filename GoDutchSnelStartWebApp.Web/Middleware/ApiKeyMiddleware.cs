@@ -9,14 +9,17 @@ public sealed class ApiKeyMiddleware
 {
     private const string HeaderName = "X-Api-Key";
 
-    // Deze endpoints zijn bewust publiek: de health-check voor monitoring, en de
-    // leadformulier-endpoint die rechtstreeks door een browser op de publieke landingspagina
-    // wordt aangeroepen (beperkt door de "LandingPage" CORS-policy, niet door een API-key).
+    // Deze endpoints zijn bewust publiek, dus NOOIT achter de API-key: de health-check voor
+    // monitoring; het leadformulier en de publieke aanmelding die rechtstreeks door een browser
+    // op de publieke landingspagina worden aangeroepen; en de GoDutch-webhook, die rechtstreeks
+    // door GoDutch's eigen servers wordt aangeroepen (die kennen onze API-key niet).
     private static readonly string[] ExemptPathPrefixes =
     {
         "/api/health",
         "/health",
-        "/api/godutch-leads"
+        "/api/godutch-leads",
+        "/api/public/register",
+        "/api/godutch-webhooks"
     };
 
     private readonly RequestDelegate _next;
