@@ -775,6 +775,9 @@ else
     private async Task ClearMappingAsync(MyPosTransactionTypeMappingViewModel mapping)
     {
         mapping.SelectedGrootboekId = null;
+        mapping.BtwBerekening = "Geen";
+        mapping.BtwSoort = "Geen";
+        mapping.BtwPercentage = 0m;
         await SaveMappingAsync(mapping);
     }
 
