@@ -1,5 +1,6 @@
 @page "/beheerder/tenants"
 
+@using System.ComponentModel.DataAnnotations
 @using GoDutchSnelStartWebApp.Portal.Models
 
 @inject IBackendApiClient BackendApiClient
@@ -14,8 +15,18 @@
     return;
 }
 
-<h1 class="mb-1">Tenants overzicht</h1>
-<p class="text-muted mb-4">Welke module(s) een tenant heeft en de huidige status.</p>
+<div class="d-flex justify-content-between align-items-start mb-1">
+    <div>
+        <h1 class="mb-1">Tenants overzicht</h1>
+        <p class="text-muted mb-4">Welke module(s) een tenant heeft en de huidige status.</p>
+    </div>
+    <button class="btn btn-primary" @onclick="OpenCreateModal">+ Nieuwe tenant</button>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(pageSuccess))
+{
+    <div class="alert alert-success py-2">@pageSuccess</div>
+}
 
 @if (isLoading)
 {
@@ -37,6 +48,7 @@ else
                     <th>MyPos</th>
                     <th>Status</th>
                     <th>Actief</th>
+                    <th></th>
                 </tr>
             </thead>
             <tbody>
@@ -61,6 +73,10 @@ else
                                 @(tenant.IsActive ? "Ja" : "Nee")
                             </span>
                         </td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => OpenEditModal(tenant)">Bewerken</button>
+                            <button class="btn btn-sm btn-outline-danger ms-1" @onclick="() => OpenDeleteModal(tenant)">Verwijderen</button>
+                        </td>
                     </tr>
                 }
             </tbody>
@@ -68,10 +84,196 @@ else
     </div>
 }
 
+@* ── Aanmaken / bewerken ──────────────────────────────────────────── *@
+@if (showEditModal)
+{
+    <div class="tov-backdrop" @onclick="CloseModals"></div>
+    <div class="tov-dialog" role="dialog" aria-modal="true">
+        <div class="card shadow-lg">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <strong>@(isCreateMode ? "Nieuwe tenant" : $"Tenant bewerken — {editModel.Name}")</strong>
+                <button type="button" class="btn-close" aria-label="Sluiten" @onclick="CloseModals"></button>
+            </div>
+            <div class="card-body">
+                <EditForm Model="editModel" OnValidSubmit="SaveAsync">
+                    <DataAnnotationsValidator />
+
+                    @if (!string.IsNullOrWhiteSpace(formError))
+                    {
+                        <div class="alert alert-danger py-2">@formError</div>
+                    }
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Naam *</label>
+                            <InputText class="form-control" @bind-Value="editModel.Name" />
+                            <ValidationMessage For="() => editModel.Name" class="text-danger small" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Klantcode</label>
+                            <InputText class="form-control" @bind-Value="editModel.CustomerCode" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Bedrijfsnaam</label>
+                            <InputText class="form-control" @bind-Value="editModel.CompanyName" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Contactpersoon</label>
+                            <InputText class="form-control" @bind-Value="editModel.ContactName" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">E-mail</label>
+                            <InputText class="form-control" @bind-Value="editModel.Email" />
+                            <ValidationMessage For="() => editModel.Email" class="text-danger small" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Telefoon</label>
+                            <InputText class="form-control" @bind-Value="editModel.Phone" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Adres</label>
+                            <InputText class="form-control" @bind-Value="editModel.Address" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Postcode</label>
+                            <InputText class="form-control" @bind-Value="editModel.PostalCode" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Plaats</label>
+                            <InputText class="form-control" @bind-Value="editModel.City" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">KvK-nummer</label>
+                            <InputText class="form-control" @bind-Value="editModel.KvkNumber" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Status</label>
+                            <InputSelect class="form-select" @bind-Value="editModel.Status">
+                                <option value="Draft">Draft</option>
+                                <option value="Trial">Trial</option>
+                                <option value="Active">Active</option>
+                                <option value="Cancelled">Cancelled</option>
+                            </InputSelect>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check form-check-inline">
+                                <InputCheckbox class="form-check-input" @bind-Value="editModel.GoDutchEnabled" id="godutchEnabled" />
+                                <label class="form-check-label" for="godutchEnabled">GoDutch</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <InputCheckbox class="form-check-input" @bind-Value="editModel.MyPosEnabled" id="myposEnabled" />
+                                <label class="form-check-label" for="myposEnabled">MyPos</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <InputCheckbox class="form-check-input" @bind-Value="editModel.IsActive" id="tenantActive" />
+                                <label class="form-check-label" for="tenantActive">Actief</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    @if (isCreateMode)
+                    {
+                        <p class="text-muted small mt-3 mb-0">
+                            Dit maakt alleen de tenant aan (geen gebruikersaccounts, geen welkomstmail).
+                            Gebruik <strong>Tenant onboarden</strong> voor een volledige aanmelding met inloggegevens.
+                        </p>
+                    }
+
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                            @(isSaving ? "Opslaan..." : "Opslaan")
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary ms-2" @onclick="CloseModals" disabled="@isSaving">
+                            Annuleren
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Verwijderen ──────────────────────────────────────────────────── *@
+@if (showDeleteModal && tenantToDelete is not null)
+{
+    <div class="tov-backdrop" @onclick="CloseModals"></div>
+    <div class="tov-dialog tov-dialog-sm" role="dialog" aria-modal="true">
+        <div class="card shadow-lg">
+            <div class="card-header">
+                <strong class="text-danger">Tenant verwijderen</strong>
+            </div>
+            <div class="card-body">
+                <p>
+                    Weet u zeker dat u <strong>@tenantToDelete.Name</strong> wilt verwijderen?
+                    Dit kan niet ongedaan worden gemaakt.
+                </p>
+                <p class="text-muted small mb-2">Typ de tenantnaam ter bevestiging:</p>
+                <input class="form-control mb-3" @bind="deleteConfirmText" @bind:event="oninput"
+                       placeholder="@tenantToDelete.Name" disabled="@isDeleting" />
+
+                @if (!string.IsNullOrWhiteSpace(deleteError))
+                {
+                    <div class="alert alert-danger py-2">@deleteError</div>
+                }
+
+                <button class="btn btn-danger" disabled="@(!CanConfirmDelete || isDeleting)" @onclick="ConfirmDeleteAsync">
+                    @(isDeleting ? "Verwijderen..." : "Definitief verwijderen")
+                </button>
+                <button class="btn btn-outline-secondary ms-2" @onclick="CloseModals" disabled="@isDeleting">
+                    Annuleren
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .tov-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(17, 24, 39, .55);
+        z-index: 1040;
+    }
+
+    .tov-dialog {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 1050;
+        width: 94%;
+        max-width: 640px;
+        max-height: 88vh;
+        overflow-y: auto;
+    }
+
+    .tov-dialog-sm {
+        max-width: 480px;
+    }
+</style>
+
 @code {
-    private IReadOnlyList<TenantViewModel> tenants = [];
+    private List<TenantViewModel> tenants = [];
     private bool isLoading;
     private string? loadError;
+    private string? pageSuccess;
+
+    private bool showEditModal;
+    private bool isCreateMode;
+    private Guid editingTenantId;
+    private EditTenantModel editModel = new();
+    private bool isSaving;
+    private string? formError;
+
+    private bool showDeleteModal;
+    private TenantViewModel? tenantToDelete;
+    private string deleteConfirmText = string.Empty;
+    private string? deleteError;
+    private bool isDeleting;
+
+    private bool CanConfirmDelete =>
+        tenantToDelete is not null &&
+        string.Equals(deleteConfirmText, tenantToDelete.Name, StringComparison.Ordinal);
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -81,7 +283,9 @@ else
         loadError = null;
         try
         {
-            tenants = await BackendApiClient.GetAllTenantsAsync();
+            tenants = (await BackendApiClient.GetAllTenantsAsync())
+                .OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
         }
         catch (Exception ex)
         {
@@ -89,5 +293,162 @@ else
             loadError = $"Laden mislukt: {ex.Message}";
         }
         finally { isLoading = false; }
+    }
+
+    private void OpenCreateModal()
+    {
+        isCreateMode = true;
+        editingTenantId = Guid.Empty;
+        editModel = new EditTenantModel { Status = "Draft", IsActive = true };
+        formError = null;
+        pageSuccess = null;
+        showEditModal = true;
+    }
+
+    private void OpenEditModal(TenantViewModel tenant)
+    {
+        isCreateMode = false;
+        editingTenantId = tenant.Id;
+        editModel = new EditTenantModel
+        {
+            Name = tenant.Name,
+            CustomerCode = tenant.CustomerCode,
+            CompanyName = tenant.CompanyName,
+            ContactName = tenant.ContactName,
+            Email = tenant.Email,
+            Phone = tenant.Phone,
+            Address = tenant.Address,
+            PostalCode = tenant.PostalCode,
+            City = tenant.City,
+            KvkNumber = tenant.KvkNumber,
+            GoDutchEnabled = tenant.GoDutchEnabled,
+            MyPosEnabled = tenant.MyPosEnabled,
+            Status = string.IsNullOrWhiteSpace(tenant.Status) ? "Draft" : tenant.Status,
+            IsActive = tenant.IsActive
+        };
+        formError = null;
+        pageSuccess = null;
+        showEditModal = true;
+    }
+
+    private void OpenDeleteModal(TenantViewModel tenant)
+    {
+        tenantToDelete = tenant;
+        deleteConfirmText = string.Empty;
+        deleteError = null;
+        pageSuccess = null;
+        showDeleteModal = true;
+    }
+
+    private void CloseModals()
+    {
+        if (isSaving || isDeleting) return;
+
+        showEditModal = false;
+        showDeleteModal = false;
+        tenantToDelete = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        formError = null;
+        isSaving = true;
+        try
+        {
+            if (isCreateMode)
+            {
+                var request = new CreateTenantRequestViewModel
+                {
+                    Name = editModel.Name.Trim(),
+                    CustomerCode = editModel.CustomerCode,
+                    CompanyName = editModel.CompanyName,
+                    ContactName = editModel.ContactName,
+                    Email = editModel.Email,
+                    Phone = editModel.Phone,
+                    Address = editModel.Address,
+                    PostalCode = editModel.PostalCode,
+                    City = editModel.City,
+                    KvkNumber = editModel.KvkNumber,
+                    GoDutchEnabled = editModel.GoDutchEnabled,
+                    MyPosEnabled = editModel.MyPosEnabled,
+                    Status = editModel.Status,
+                    IsActive = editModel.IsActive
+                };
+                await BackendApiClient.CreateTenantAsync(request);
+                pageSuccess = $"Tenant '{editModel.Name}' aangemaakt.";
+            }
+            else
+            {
+                var request = new UpdateTenantRequestViewModel
+                {
+                    Name = editModel.Name.Trim(),
+                    CustomerCode = editModel.CustomerCode,
+                    CompanyName = editModel.CompanyName,
+                    ContactName = editModel.ContactName,
+                    Email = editModel.Email,
+                    Phone = editModel.Phone,
+                    Address = editModel.Address,
+                    PostalCode = editModel.PostalCode,
+                    City = editModel.City,
+                    KvkNumber = editModel.KvkNumber,
+                    GoDutchEnabled = editModel.GoDutchEnabled,
+                    MyPosEnabled = editModel.MyPosEnabled,
+                    Status = editModel.Status,
+                    IsActive = editModel.IsActive
+                };
+                await BackendApiClient.UpdateTenantAsync(editingTenantId, request);
+                pageSuccess = $"Tenant '{editModel.Name}' opgeslagen.";
+            }
+
+            showEditModal = false;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            formError = ex.Message;
+        }
+        finally { isSaving = false; }
+    }
+
+    private async Task ConfirmDeleteAsync()
+    {
+        if (tenantToDelete is null || !CanConfirmDelete) return;
+
+        isDeleting = true;
+        deleteError = null;
+        try
+        {
+            await BackendApiClient.DeleteTenantAsync(tenantToDelete.Id);
+            pageSuccess = $"Tenant '{tenantToDelete.Name}' verwijderd.";
+            showDeleteModal = false;
+            tenantToDelete = null;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            deleteError = ex.Message;
+        }
+        finally { isDeleting = false; }
+    }
+
+    private sealed class EditTenantModel
+    {
+        [Required(ErrorMessage = "Naam is verplicht.")]
+        public string Name { get; set; } = string.Empty;
+        public string? CustomerCode { get; set; }
+        public string? CompanyName { get; set; }
+        public string? ContactName { get; set; }
+
+        [EmailAddress(ErrorMessage = "Ongeldig e-mailadres.")]
+        public string? Email { get; set; }
+        public string? Phone { get; set; }
+        public string? Address { get; set; }
+        public string? PostalCode { get; set; }
+        public string? City { get; set; }
+        public string? KvkNumber { get; set; }
+        public bool GoDutchEnabled { get; set; }
+        public bool MyPosEnabled { get; set; }
+        public string Status { get; set; } = "Draft";
+        public bool IsActive { get; set; } = true;
     }
 }

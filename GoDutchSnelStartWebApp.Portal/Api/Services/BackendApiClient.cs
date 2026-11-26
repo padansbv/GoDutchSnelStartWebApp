@@ -1369,6 +1369,57 @@ public sealed class BackendApiClient : IBackendApiClient
         return result ?? [];
     }
 
+    public async Task<Guid> CreateTenantAsync(
+        CreateTenantRequestViewModel request,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PostAsJsonAsync("api/tenants", request, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new InvalidOperationException($"Tenant aanmaken mislukt. HTTP {(int)response.StatusCode}: {error}");
+        }
+
+        if (response.Headers.Location is { } location)
+        {
+            var lastSegment = location.ToString().TrimEnd('/').Split('/')[^1];
+            if (Guid.TryParse(lastSegment, out var id))
+            {
+                return id;
+            }
+        }
+
+        throw new InvalidOperationException("Tenant is aangemaakt, maar het nieuwe Id kon niet worden bepaald.");
+    }
+
+    public async Task UpdateTenantAsync(
+        Guid tenantId,
+        UpdateTenantRequestViewModel request,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.PutAsJsonAsync($"api/tenants/{tenantId}", request, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new InvalidOperationException($"Tenant opslaan mislukt. HTTP {(int)response.StatusCode}: {error}");
+        }
+    }
+
+    public async Task DeleteTenantAsync(
+        Guid tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.DeleteAsync($"api/tenants/{tenantId}", cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadAsStringAsync(cancellationToken);
+            throw new InvalidOperationException($"Tenant verwijderen mislukt. HTTP {(int)response.StatusCode}: {error}");
+        }
+    }
+
     public async Task<bool> SelfChangePasswordAsync(
         SelfChangePasswordRequestViewModel request,
         CancellationToken cancellationToken = default)

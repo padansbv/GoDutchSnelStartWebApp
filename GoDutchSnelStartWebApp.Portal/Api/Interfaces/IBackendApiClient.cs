@@ -267,6 +267,19 @@ public interface IBackendApiClient
     Task<IReadOnlyList<TenantViewModel>> GetAllTenantsAsync(
         CancellationToken cancellationToken = default);
 
+    Task<Guid> CreateTenantAsync(
+        CreateTenantRequestViewModel request,
+        CancellationToken cancellationToken = default);
+
+    Task UpdateTenantAsync(
+        Guid tenantId,
+        UpdateTenantRequestViewModel request,
+        CancellationToken cancellationToken = default);
+
+    Task DeleteTenantAsync(
+        Guid tenantId,
+        CancellationToken cancellationToken = default);
+
     Task<bool> SelfChangePasswordAsync(
         SelfChangePasswordRequestViewModel request,
         CancellationToken cancellationToken = default);

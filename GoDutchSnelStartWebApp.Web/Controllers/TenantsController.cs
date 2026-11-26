@@ -9,6 +9,7 @@ using GoDutchSnelStartWebApp.Application.Tenants.Interfaces;
 using GoDutchSnelStartWebApp.Domain.Enums;
 using GoDutchSnelStartWebApp.Web.Contracts.Tenants;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Options;
 
 namespace GoDutchSnelStartWebApp.Web.Controllers;
@@ -145,7 +146,34 @@ public sealed class TenantsController : ControllerBase
     [HttpDelete("{id:guid}")]
     public async Task<ActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
-        await _tenantService.DeleteAsync(id, cancellationToken);
+        var tenant = await _tenantService.GetByIdAsync(id, cancellationToken);
+        if (tenant is null)
+            return NotFound();
+
+        // AppUsers.TenantId heeft geen foreign key naar Tenants (losse kolom), dus een harde
+        // delete zou hier stille wezen-accounts achterlaten die bij inloggen crashen op een
+        // niet-bestaande tenant. Dat voorkomen we hier expliciet.
+        var tenantUsers = await _userRepository.GetByTenantIdAsync(id, cancellationToken);
+        if (tenantUsers.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"Tenant kan niet worden verwijderd: er zijn nog {tenantUsers.Count} gebruikersaccount(s) aan gekoppeld. " +
+                "Zeg eerst het abonnement op of verwijder de gebruikers, en probeer het daarna opnieuw.");
+        }
+
+        try
+        {
+            await _tenantService.DeleteAsync(id, cancellationToken);
+        }
+        catch (SqlException ex) when (ex.Number == 547)
+        {
+            // Foreign key-schending: er bestaan nog bankrekeningen, koppelingen of transacties.
+            throw new InvalidOperationException(
+                "Tenant kan niet worden verwijderd: er zijn nog gekoppelde gegevens (bankrekeningen, " +
+                "SnelStart/MyPos-koppelingen of transacties). Zet de tenant op inactief in plaats van te verwijderen.");
+        }
+
+        _logger.LogInformation("Tenant {TenantId} ({CompanyName}) verwijderd door beheerder.", id, tenant.CompanyName ?? tenant.Name);
         return NoContent();
     }
 
