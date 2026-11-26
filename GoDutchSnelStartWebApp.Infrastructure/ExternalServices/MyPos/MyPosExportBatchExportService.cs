@@ -317,10 +317,10 @@ public sealed class MyPosExportBatchExportService : IMyPosExportBatchExportServi
 
             var grossAmount = Math.Abs(originalSignedAmount);
 
-            var btwSoort = ResolveBtwSoort(line);
+            var configuredBtwSoort = ResolveBtwSoort(line);
 
-            var hasVat =
-                !string.Equals(btwSoort, "Geen", StringComparison.OrdinalIgnoreCase) &&
+            var btwConfigured =
+                !string.Equals(configuredBtwSoort, "Geen", StringComparison.OrdinalIgnoreCase) &&
                 line.BtwPercentage.HasValue &&
                 line.BtwPercentage.Value > 0;
 
@@ -328,7 +328,7 @@ public sealed class MyPosExportBatchExportService : IMyPosExportBatchExportServi
             var vatAmount = 0m;
             var grossAmountForBank = grossAmount;
 
-            if (hasVat)
+            if (btwConfigured)
             {
                 if (string.Equals(line.BtwBerekening, "InclusiefBtw", StringComparison.OrdinalIgnoreCase))
                 {
@@ -345,6 +345,13 @@ public sealed class MyPosExportBatchExportService : IMyPosExportBatchExportServi
                     grossAmountForBank = RoundMoney(netAmount + vatAmount);
                 }
             }
+
+            // SnelStart wijst de hele boeking af (BOE-0082) als een grootboekregel een btwSoort
+            // draagt zonder een bijbehorende btwboekingsregel. Dat gebeurt als de berekende btw
+            // afrondt naar € 0,00 (bv. kleine totaalbedragen), dus zet btwSoort dan ook op "Geen"
+            // zodat beide regels consistent blijven.
+            var hasVat = btwConfigured && vatAmount != 0m;
+            var btwSoort = hasVat ? configuredBtwSoort : "Geen";
 
             netBankAmount += isReceived
                 ? grossAmountForBank
@@ -367,7 +374,7 @@ public sealed class MyPosExportBatchExportService : IMyPosExportBatchExportServi
                 btwSoort = btwSoort
             });
 
-            if (hasVat && vatAmount != 0m)
+            if (hasVat)
             {
                 btwBoekingsregels.Add(new
                 {
