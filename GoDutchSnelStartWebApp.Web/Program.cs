@@ -3,6 +3,7 @@ using GoDutchSnelStartWebApp.Application.DependencyInjection;
 using GoDutchSnelStartWebApp.Infrastructure.DependencyInjection;
 using GoDutchSnelStartWebApp.Web.Configuration;
 using GoDutchSnelStartWebApp.Web.Middleware;
+using GoDutchSnelStartWebApp.Web.Security;
 using Serilog;
 
 namespace GoDutchSnelStartWebApp.Web;
@@ -60,7 +61,8 @@ public class Program
                         .WithHeaders("Content-Type"));
             });
 
-            builder.Services.AddControllers()
+            builder.Services.AddControllers(options =>
+                    options.Filters.Add<TenantAccessFilter>())
                 .AddJsonOptions(options =>
                     options.JsonSerializerOptions.Converters.Add(
                         new System.Text.Json.Serialization.JsonStringEnumConverter()));

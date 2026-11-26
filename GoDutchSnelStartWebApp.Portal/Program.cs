@@ -49,6 +49,7 @@ namespace GoDutchSnelStartWebApp.Portal
                     builder.Configuration.GetSection(PortalTenantOptions.SectionName));
             builder.Services.AddScoped<AppSession>();
             builder.Services.AddTransient<SessionExpiryHandler>();
+            builder.Services.AddTransient<UserContextHandler>();
 
             builder.Services.AddHttpClient<IBackendApiClient, BackendApiClient>(client =>
             {
@@ -57,13 +58,15 @@ namespace GoDutchSnelStartWebApp.Portal
                 // Het myPOS saldo-overzicht kan bij brede periodes (veel myPOS-paginas)
                 // meerdere minuten duren; de default van 100s is daarvoor te krap.
                 client.Timeout = TimeSpan.FromMinutes(10);
-            }).AddHttpMessageHandler<SessionExpiryHandler>();
+            }).AddHttpMessageHandler<SessionExpiryHandler>()
+              .AddHttpMessageHandler<UserContextHandler>();
 
             builder.Services.AddHttpClient<IGoDutchBackendApiClient, GoDutchBackendApiClient>(client =>
             {
                 client.BaseAddress = new Uri(apiBaseUrl);
                 client.DefaultRequestHeaders.Add("X-Api-Key", apiKey);
-            }).AddHttpMessageHandler<SessionExpiryHandler>();
+            }).AddHttpMessageHandler<SessionExpiryHandler>()
+              .AddHttpMessageHandler<UserContextHandler>();
 
             var app = builder.Build();
 
