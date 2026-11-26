@@ -678,11 +678,12 @@ public sealed class MyPosTransactionImportService : IMyPosTransactionImportServi
                 var delay = TimeSpan.FromSeconds(attempt * 2);
 
                 _logger.LogWarning(
-                    "myPOS totaal ophalen tijdelijk mislukt. Attempt: {Attempt}/{MaxAttempts}, StatusCode: {StatusCode}, Wacht: {DelaySeconds}s, ResponsePreview: {ResponsePreview}.",
+                    "myPOS totaal ophalen tijdelijk mislukt. Attempt: {Attempt}/{MaxAttempts}, StatusCode: {StatusCode}, Wacht: {DelaySeconds}s, CloudflareDiagnostics: {CloudflareDiagnostics}, ResponsePreview: {ResponsePreview}.",
                     attempt,
                     maxAttempts,
                     (int)response.StatusCode,
                     delay.TotalSeconds,
+                    DescribeCloudflareDiagnostics(response),
                     Truncate(json));
 
                 await Task.Delay(delay, cancellationToken);
@@ -690,8 +691,9 @@ public sealed class MyPosTransactionImportService : IMyPosTransactionImportServi
             }
 
             _logger.LogWarning(
-                "myPOS totaal ophalen mislukt. StatusCode: {StatusCode}, ResponsePreview: {ResponsePreview}.",
+                "myPOS totaal ophalen mislukt. StatusCode: {StatusCode}, CloudflareDiagnostics: {CloudflareDiagnostics}, ResponsePreview: {ResponsePreview}.",
                 (int)response.StatusCode,
+                DescribeCloudflareDiagnostics(response),
                 Truncate(json));
 
             throw new HttpRequestException(
@@ -914,6 +916,21 @@ public sealed class MyPosTransactionImportService : IMyPosTransactionImportServi
         request.Headers.TryAddWithoutValidation("API-Key", apiKey);
         request.Headers.TryAddWithoutValidation("X-Request-ID", requestId);
         request.Headers.TryAddWithoutValidation("Accept", "application/json");
+    }
+
+    // Diagnostisch: welke Cloudflare-regel een request blokkeerde (cf-mitigated/cf-ray),
+    // zonder gevoelige data (token/geheim) te loggen. Nooit zelf doorgestuurd naar de gebruiker.
+    private static string DescribeCloudflareDiagnostics(HttpResponseMessage response)
+    {
+        static string? GetHeader(HttpResponseMessage response, string name) =>
+            response.Headers.TryGetValues(name, out var values) ? string.Join(",", values) : null;
+
+        var server = GetHeader(response, "Server");
+        var cfRay = GetHeader(response, "cf-ray");
+        var cfMitigated = GetHeader(response, "cf-mitigated");
+        var protocolVersion = response.Version.ToString();
+
+        return $"Server={server ?? "-"}, cf-ray={cfRay ?? "-"}, cf-mitigated={cfMitigated ?? "-"}, HttpVersion={protocolVersion}";
     }
 
     private static IReadOnlyList<JsonElement> ParseTransactionItems(string json)

@@ -23,6 +23,7 @@ using GoDutchSnelStartWebApp.Infrastructure.Repositories.SnelStart;
 using GoDutchSnelStartWebApp.Infrastructure.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using System.Net;
 using System.Runtime.Versioning;
 
 namespace GoDutchSnelStartWebApp.Infrastructure.DependencyInjection;
@@ -88,6 +89,13 @@ public static class InfrastructureServiceRegistration
             // "Just a moment..."-JS-challenge (HTTP 403) i.p.v. de echte API-respons.
             client.DefaultRequestHeaders.UserAgent.ParseAdd(
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) GoDutchSnelStartWebApp/1.0");
+
+            // curl op dezelfde server komt wel door Cloudflare heen met identieke headers en
+            // credentials; HttpClient onderhandelt standaard HTTP/2, curl gebruikt HTTP/1.1.
+            // Cloudflare's bot-detectie kan op dat verschil fingerprinten, dus dwingen we hier
+            // ook HTTP/1.1 af.
+            client.DefaultRequestVersion = HttpVersion.Version11;
+            client.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionExact;
         });
         services.AddHttpClient<IMyPosExportBatchExportService, MyPosExportBatchExportService>(client =>
         {
