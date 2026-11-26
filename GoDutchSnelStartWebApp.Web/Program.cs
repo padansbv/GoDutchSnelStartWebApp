@@ -1,6 +1,7 @@
 using System.Runtime.Versioning;
 using GoDutchSnelStartWebApp.Application.DependencyInjection;
 using GoDutchSnelStartWebApp.Infrastructure.DependencyInjection;
+using GoDutchSnelStartWebApp.Web.Configuration;
 using GoDutchSnelStartWebApp.Web.Middleware;
 using Serilog;
 
@@ -70,12 +71,16 @@ public class Program
             builder.Services.AddInfrastructureServices(builder.Configuration);
             builder.Services.AddHealthChecks();
 
+            builder.Services.Configure<ApiSecurityOptions>(
+                builder.Configuration.GetSection(ApiSecurityOptions.SectionName));
+
             var app = builder.Build();
 
             Log.Information("Serilog file test after app build");
 
             app.UseSerilogRequestLogging();
             app.UseCors("LandingPage");
+            app.UseApiKeyAuthentication();
             app.UseApiExceptionMiddleware();
 
             if (app.Environment.IsDevelopment())

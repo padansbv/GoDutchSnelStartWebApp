@@ -35,6 +35,16 @@ namespace GoDutchSnelStartWebApp.Portal
                 .AddInteractiveServerComponents();
             var apiBaseUrl = builder.Configuration["BackendApi:BaseUrl"] ?? "http://localhost:5275/";
 
+            // Gedeeld geheim met de Web API (zelfde waarde als ApiSecurity:ApiKey daar); zonder
+            // deze sleutel wijst de API elk verzoek vanaf de Portal af met HTTP 401.
+            var apiKey = builder.Configuration["ApiSecurity:ApiKey"];
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                throw new InvalidOperationException(
+                    "ApiSecurity:ApiKey is niet geconfigureerd. Zet deze in appsettings.Production.json " +
+                    "op de server, met dezelfde waarde als ApiSecurity:ApiKey in de Web API.");
+            }
+
             builder.Services.Configure<PortalTenantOptions>(
                     builder.Configuration.GetSection(PortalTenantOptions.SectionName));
             builder.Services.AddScoped<AppSession>();
@@ -43,6 +53,7 @@ namespace GoDutchSnelStartWebApp.Portal
             builder.Services.AddHttpClient<IBackendApiClient, BackendApiClient>(client =>
             {
                 client.BaseAddress = new Uri(apiBaseUrl);
+                client.DefaultRequestHeaders.Add("X-Api-Key", apiKey);
                 // Het myPOS saldo-overzicht kan bij brede periodes (veel myPOS-paginas)
                 // meerdere minuten duren; de default van 100s is daarvoor te krap.
                 client.Timeout = TimeSpan.FromMinutes(10);
@@ -51,6 +62,7 @@ namespace GoDutchSnelStartWebApp.Portal
             builder.Services.AddHttpClient<IGoDutchBackendApiClient, GoDutchBackendApiClient>(client =>
             {
                 client.BaseAddress = new Uri(apiBaseUrl);
+                client.DefaultRequestHeaders.Add("X-Api-Key", apiKey);
             }).AddHttpMessageHandler<SessionExpiryHandler>();
 
             var app = builder.Build();
