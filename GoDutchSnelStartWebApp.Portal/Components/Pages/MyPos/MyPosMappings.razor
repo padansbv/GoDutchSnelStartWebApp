@@ -489,6 +489,10 @@ else
         {
             mapping.SelectedGrootboekId = mapping.SnelStartGrootboekId;
             NormalizeBtwForDisplay(mapping);
+
+            // Ook toepassen op mappings waar het grootboek al eerder (vóór deze functie bestond)
+            // is gekozen, niet alleen bij een nieuwe selectie via de dropdown.
+            ApplyGrootboekBtwDefault(mapping);
         }
 
         await UpdateLoadingProgressAsync(100, "Gereed", "Alle gegevens zijn geladen.");
