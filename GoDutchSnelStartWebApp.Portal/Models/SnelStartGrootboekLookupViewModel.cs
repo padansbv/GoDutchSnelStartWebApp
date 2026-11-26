@@ -6,6 +6,8 @@ public sealed class SnelStartGrootboekLookupViewModel
     public string? Nummer { get; set; }
     public string? Omschrijving { get; set; }
 
+    public IReadOnlyList<string> BtwSoort { get; set; } = Array.Empty<string>();
+
     public string DisplayName
     {
         get

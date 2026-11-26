@@ -292,7 +292,8 @@ public sealed class SnelStartLookupService : ISnelStartLookupService
             {
                 Id = TryGetGuid(item, "id") ?? Guid.Empty,
                 Nummer = TryGetString(item, "nummer"),
-                Omschrijving = TryGetString(item, "omschrijving")
+                Omschrijving = TryGetString(item, "omschrijving"),
+                BtwSoort = TryGetStringArray(item, "btwSoort")
             },
             "grootboeken",
             tenantId,
@@ -572,6 +573,32 @@ public sealed class SnelStartLookupService : ISnelStartLookupService
         return Guid.TryParse(raw, out var guid)
             ? guid
             : null;
+    }
+
+    private static IReadOnlyList<string> TryGetStringArray(JsonElement element, string propertyName)
+    {
+        if (!element.TryGetProperty(propertyName, out var property) ||
+            property.ValueKind != JsonValueKind.Array)
+        {
+            return Array.Empty<string>();
+        }
+
+        var values = new List<string>();
+
+        foreach (var item in property.EnumerateArray())
+        {
+            if (item.ValueKind == JsonValueKind.String)
+            {
+                var value = item.GetString();
+
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    values.Add(value);
+                }
+            }
+        }
+
+        return values;
     }
 
     private static string Truncate(string? value)

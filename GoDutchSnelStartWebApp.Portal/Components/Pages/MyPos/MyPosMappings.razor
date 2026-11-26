@@ -673,6 +673,42 @@ else
         mapping.SelectedGrootboekId = Guid.TryParse(rawValue, out var grootboekId)
             ? grootboekId
             : null;
+
+        ApplyGrootboekBtwDefault(mapping);
+    }
+
+    // Als de gekozen grootboekrekening in SnelStart zelf al aan een btw-soort is gekoppeld, en
+    // de mapping zelf nog geen btw heeft (staat op "Geen"), nemen we die btw-soort automatisch
+    // over zodat de gebruiker niet zelf moet achterhalen welk tarief SnelStart verwacht. Een
+    // btw-instelling die de gebruiker zelf al heeft gekozen, wordt nooit overschreven.
+    private void ApplyGrootboekBtwDefault(MyPosTransactionTypeMappingViewModel mapping)
+    {
+        if (!string.Equals(mapping.BtwBerekening, "Geen", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var grootboek = grootboeken.FirstOrDefault(x => x.Id == mapping.SelectedGrootboekId);
+
+        var vereisteBtwSoort = grootboek?.BtwSoort.FirstOrDefault(
+            soort => !string.Equals(soort, "Geen", StringComparison.OrdinalIgnoreCase));
+
+        if (string.IsNullOrWhiteSpace(vereisteBtwSoort))
+        {
+            return;
+        }
+
+        var tarief = btwTarieven.FirstOrDefault(x =>
+            string.Equals(x.BtwSoort, vereisteBtwSoort, StringComparison.OrdinalIgnoreCase));
+
+        if (tarief is null)
+        {
+            return;
+        }
+
+        mapping.BtwBerekening = "InclusiefBtw";
+        mapping.BtwSoort = tarief.BtwSoort;
+        mapping.BtwPercentage = tarief.BtwPercentage;
     }
 
     private void OnBtwBerekeningChanged(MyPosTransactionTypeMappingViewModel mapping, string? value)

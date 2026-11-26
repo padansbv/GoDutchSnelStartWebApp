@@ -281,7 +281,10 @@ public sealed class MyPosExportBatchExportService : IMyPosExportBatchExportServi
                 body,
                 payload);
 
+            var friendlyMessage = TryBuildFriendlyBoe0082Message(body);
+
             throw new InvalidOperationException(
+                friendlyMessage ??
                 $"SnelStart bankboeking POST mislukt voor myPOS batch met HTTP {(int)response.StatusCode}. Response: {body}");
         }
 
@@ -547,6 +550,77 @@ public sealed class MyPosExportBatchExportService : IMyPosExportBatchExportServi
         return baseUrl.EndsWith("/v2", StringComparison.OrdinalIgnoreCase)
             ? baseUrl
             : baseUrl + "/v2";
+    }
+
+    // SnelStart wijst een boeking af met foutcode BOE-0082 als een grootboekrekening zelf een
+    // btw-soort vereist, maar de aangeleverde boeking "Geen btw" meegeeft. Dat is altijd een
+    // mapping-probleem (niet iets wat de gebruiker zelf fout deed in de export), dus geven we
+    // hier een gerichte Nederlandse melding i.p.v. de ruwe SnelStart-foutenlijst.
+    private static string? TryBuildFriendlyBoe0082Message(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(body);
+            var root = document.RootElement;
+
+            IEnumerable<JsonElement> errors;
+            if (root.ValueKind == JsonValueKind.Array)
+            {
+                errors = root.EnumerateArray();
+            }
+            else if (root.ValueKind == JsonValueKind.Object)
+            {
+                errors = new[] { root };
+            }
+            else
+            {
+                return null;
+            }
+
+            foreach (var error in errors)
+            {
+                if (error.ValueKind != JsonValueKind.Object)
+                {
+                    continue;
+                }
+
+                var errorCode = error.TryGetProperty("errorCode", out var errorCodeElement) &&
+                    errorCodeElement.ValueKind == JsonValueKind.String
+                    ? errorCodeElement.GetString()
+                    : null;
+
+                if (!string.Equals(errorCode, "BOE-0082", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var details = error.TryGetProperty("details", out var detailsElement) &&
+                    detailsElement.ValueKind == JsonValueKind.String
+                    ? detailsElement.GetString()
+                    : null;
+
+                var detailsSuffix = string.IsNullOrWhiteSpace(details)
+                    ? string.Empty
+                    : $" {details.Trim()}.";
+
+                return "SnelStart verwacht een btw-boeking voor een grootboekrekening in deze export, " +
+                    "maar de myPOS-mapping voor die transactiesoort staat op 'Geen btw'." + detailsSuffix +
+                    " Ga naar myPOS mappings, zoek de transactiesoort die naar deze grootboekrekening " +
+                    "wijst en stel daar de juiste btw-berekening en btw-soort in (bijvoorbeeld Laag of Hoog), " +
+                    "passend bij hoe de rekening in SnelStart is ingericht. Exporteer de batch daarna opnieuw.";
+            }
+        }
+        catch (JsonException)
+        {
+            // Response is geen (geldige) JSON-foutenlijst; val terug op de ruwe foutmelding.
+        }
+
+        return null;
     }
 
     private static string TryReadSnelStartReference(string body)
